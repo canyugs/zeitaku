@@ -1,0 +1,24 @@
+改名契約所 — 授權與資料來源
+==========================
+
+本遊戲的程式碼、版面、文字與 SVG 美術皆為原創，與 CAEN Games「今日からお前は」無任何程式碼、美術或文字上的沿用，僅受其玩法概念啟發。
+
+1. 筆畫資料（public/data/chars.json 中的 s: 字形輪廓、m/n: 筆畫中線）
+   來源：Make Me a Hanzi — graphics.txt  https://github.com/skishore/makemeahanzi
+   衍生自 Arphic PL KaitiM GB 與 Arphic PL UKai 字型。
+   授權：Arphic Public License（全文見 ARPHICPL.TXT）。本檔為其衍生資料，依同一授權再散布。
+
+2. 拼音資料（建置時用於核對讀音）
+   來源：Make Me a Hanzi — dictionary.txt（衍生自 Unihan 與 CJKlib）
+   授權：GNU LGPL v3 或更新版本（全文見 LGPL）。
+
+3. 注音（public/data/chars.json 中的 z）
+   以教育部《重編國語辭典修訂本》（經 moedict.tw 萌典 API 查詢）每字第一個讀音為準，
+   並與上述拼音逐字比對；少數名字用字依常見人名讀音手動指定（樂ㄌㄜˋ、娜ㄋㄚˋ、阿ㄚ 等）。
+   教育部辭典內容授權為 CC BY-ND 3.0 TW；本專案僅取用單字讀音這類事實資訊，並在此標示出處。
+
+詳細原始授權說明見 MMAH_COPYING。
+
+3D 版（3d/、dist/改名契約所3D.html）：
+- three.js r170（https://threejs.org），MIT License，見 3d/vendor/three-LICENSE.txt（單檔版附 three-LICENSE.txt）。已打包在本機檔案內，執行時不連 CDN。
+- 3D 場景、飛散的墨線與粒子、印章圖案、音效（Web Audio 即時合成）皆為本專案原創。
