@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>改名契約所 3D</title>
-<meta name="description" content="在一張和紙契約書上手寫你的名字，名字太複雜？多餘的筆畫會自己浮起、飛走，掌櫃用剩下的線替你拼出新名字。">
+<title>改名契約所</title>
+<meta name="description" content="在契約書上寫下你的名字。">
 <style>
 :root{
   --paper:#f6efe0; --ink:#1d1a17; --ink-soft:#4a433b; --red:#b8321f; --red-deep:#8e2214;
@@ -20,13 +20,6 @@ body{
 }
 #stage{position:fixed;inset:0}
 #stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
-.top{position:fixed;left:0;right:0;top:0;display:flex;justify-content:center;align-items:center;gap:8px;
-  padding:calc(env(safe-area-inset-top) + 10px) 14px 6px;pointer-events:none}
-.keeper-icon{width:34px;height:34px;flex:none;transition:transform .2s}
-.top p{margin:0;max-width:30em;font-size:15px;line-height:1.5;color:var(--ink-soft)}
-.top b{font-size:12px;letter-spacing:.12em;color:#3f6f73;margin-right:.6em}
-body.busy .keeper-icon{animation:bob .3s ease-in-out infinite alternate}
-@keyframes bob{to{transform:translateY(-3px) rotate(-6deg)}}
 .bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:10px;
   padding:8px 14px calc(env(safe-area-inset-bottom) + 30px);pointer-events:none}
 .bar > *{pointer-events:auto}
@@ -52,8 +45,7 @@ body.locked .bar .btn{opacity:.35;pointer-events:none}
 .sheet.hidden{transform:translate(-50%,130%);opacity:0;pointer-events:none}
 .stamp{position:absolute;right:12px;top:10px;border:2.5px solid var(--red);color:var(--red);padding:2px 8px;font-weight:700;
   letter-spacing:.15em;transform:rotate(6deg);opacity:.85;border-radius:4px;font-size:13px}
-.result-lead{margin:0 0 6px;color:var(--ink-soft);font-size:14px}
-.newname{display:flex;justify-content:center;gap:14px;margin:4px 0 8px}
+.newname{display:flex;justify-content:center;gap:14px;margin:18px 0 14px}
 .newname figure{margin:0;display:flex;align-items:center;gap:4px}
 .newname svg{width:clamp(64px,20vw,96px);height:clamp(64px,20vw,96px)}
 .newname svg path{fill:var(--ink)}
@@ -61,10 +53,6 @@ body.locked .bar .btn{opacity:.35;pointer-events:none}
 .zy b{font-weight:500;position:relative}
 .zy .tone{position:absolute;left:100%;top:-.3em;font-style:normal;font-size:.85em}
 .zy .dot{font-style:normal}
-.stats{display:flex;justify-content:center;gap:34px;margin:0 0 12px}
-.stats div{display:flex;flex-direction:column}
-.stats dt{font-size:12px;color:var(--ink-soft)}
-.stats dd{margin:0;font-size:22px;font-weight:700}
 .result-btns{display:flex;justify-content:center;gap:12px}
 .nogl{position:fixed;inset:auto 0 45% 0;text-align:center;font-size:16px}
 .hidden{display:none}
@@ -74,8 +62,6 @@ body.locked .bar .btn{opacity:.35;pointer-events:none}
   .sheet.hidden{transform:translate(140%,-50%)}
 }
 @media (max-width:899px){body.done .credits{display:none}}
-body.absorb .keeper-icon{animation:absorb .5s ease-in-out infinite alternate}
-@keyframes absorb{from{filter:drop-shadow(0 0 2px #ffc46b)}to{filter:drop-shadow(0 0 10px #ffb347);transform:scale(1.12)}}
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
@@ -83,19 +69,6 @@ body.absorb .keeper-icon{animation:absorb .5s ease-in-out infinite alternate}
 <body>
 <div id="stage" aria-label="契約書（請在框內手寫姓名）"></div>
 
-<header class="top" aria-live="polite">
-  <svg class="keeper-icon" viewBox="0 0 40 40" aria-hidden="true">
-    <!-- tiny original 狸掌櫃 icon -->
-    <path d="M9 13 L7 3 L16 9 Z M31 13 L33 3 L24 9 Z" fill="#8c6a4f"/>
-    <circle cx="20" cy="21" r="15" fill="#8c6a4f"/>
-    <path d="M7 21 C9 14 16 14 19 19 C16 25 10 26 7 21 Z M33 21 C31 14 24 14 21 19 C24 25 30 26 33 21 Z" fill="#3b2a20"/>
-    <path d="M13 27 C15 33 25 33 27 27 C25 24 15 24 13 27 Z" fill="#efe2cb"/>
-    <circle cx="14" cy="20" r="1.8" fill="#fff"/><circle cx="26" cy="20" r="1.8" fill="#fff"/>
-    <ellipse cx="20" cy="26" rx="2" ry="1.4" fill="#1b130e"/>
-    <path d="M14 9 C17 3 24 3 26 8 C23 7 17 7 14 9 Z" fill="#6f9a52"/>
-  </svg>
-  <p><b>狸掌櫃</b><span id="line">歡迎光臨。請在契約書的框裡，親手寫下你的名字。</span></p>
-</header>
 
 <div class="bar" id="bar">
   <button class="btn" id="undoBtn" type="button">復原一筆</button>
@@ -106,23 +79,18 @@ body.absorb .keeper-icon{animation:absorb .5s ease-in-out infinite alternate}
 
 <section class="sheet hidden" id="result" aria-live="polite">
   <div class="stamp" aria-hidden="true">契約成立</div>
-  <p class="result-lead">往後在本所，你的名字是</p>
   <div class="newname" id="newName"></div>
-  <dl class="stats">
-    <div><dt>筆畫數</dt><dd id="statStrokes"></dd></div>
-    <div><dt>被拿走的線</dt><dd id="statTaken"></dd></div>
-  </dl>
   <div class="result-btns">
     <button class="btn primary" id="shareBtn" type="button">分享</button>
     <button class="btn" id="againBtn" type="button">再簽一次</button>
   </div>
 </section>
 
-<div class="nogl hidden" id="nogl">這台裝置無法顯示 3D 畫面。<a id="to2d" href="改名契約所.html">改玩 2D 版</a></div>
+<div class="nogl hidden" id="nogl">這台裝置無法顯示 3D 畫面。<a id="to2d" href="./2d.html">改玩 2D 版</a></div>
 
 <footer class="credits">
   <button id="soundBtn" type="button" aria-pressed="true">音效：開</button>
-  原創同人小遊戲・筆畫：<a href="https://github.com/skishore/makemeahanzi" target="_blank" rel="noopener">Make Me a Hanzi</a>・注音：教育部辭典・3D：three.js・<a id="licLink" href="LICENSES.txt" target="_blank">授權</a>
+  筆畫：<a href="https://github.com/skishore/makemeahanzi" target="_blank" rel="noopener">Make Me a Hanzi</a>・注音：教育部辭典・three.js・<a id="licLink" href="./LICENSES.txt" target="_blank">授權</a>
 </footer>
 
 <script>
@@ -4268,9 +4236,9 @@ let charData = null;
 const charsReady = (window.__CHARS ? Promise.resolve(window.__CHARS) : fetch('../data/chars.json').then(r => r.json())).then(d => (charData = d));
 
 // ---------- paper geometry (paper canvas px ↔ paper local units) ----------
-const CW = 1024, CH = 1400;                  // paper texture size
+const CW = 1024, CH = 1100;                  // paper texture size
 const PW = 3, PH = PW * CH / CW;             // paper size in world units
-const PAD = { x: 72, y: 520, w: 880, h: 880 * 1.15 / 3 }; // writing box on the paper (canvas px)
+const PAD = { x: 72, y: 330, w: 880, h: 880 * 1.15 / 3 }; // writing box on the paper (canvas px)
 const PU_W = 520, PU_H = PU_W * 1.15 / 3;    // writing box in "pad units" (same scale the 2D matcher saw)
 const S = PAD.w / PU_W;                      // canvas px per pad unit
 const INK_K = 2;                             // ink canvas px per pad unit
@@ -4283,8 +4251,6 @@ const today = new Date();
 const dateStr = `中華民國 ${today.getFullYear() - 1911} 年 ${today.getMonth() + 1} 月 ${today.getDate()} 日`;
 const SERIF = getComputedStyle(document.body).fontFamily;
 
-// ---------- shopkeeper lines ----------
-function say(t) { $('#line').textContent = t; }
 
 // ---------- sound (synthesized, no samples) ----------
 let AC = null, soundOn = true, noiseBuf = null;
@@ -4351,30 +4317,24 @@ function washi(c, w, h, seed = 12345) {
   g.addColorStop(0, 'rgba(255,250,240,0)'); g.addColorStop(1, 'rgba(200,170,120,.22)');
   c.fillStyle = g; c.fillRect(0, 0, w, h);
 }
-const SEAL = { x: 800, y: 1140, r: 96 };
+const SEAL = { x: 800, y: 870, r: 96 };
 function drawPaperBase(c) {
   washi(c, CW, CH);
   const red = '#b8321f';
   c.strokeStyle = red; c.lineWidth = 5; c.strokeRect(40, 40, CW - 80, CH - 80);
   c.lineWidth = 1.8; c.strokeRect(54, 54, CW - 108, CH - 108);
   c.textAlign = 'center'; c.textBaseline = 'alphabetic';
-  c.fillStyle = '#1d1a17'; c.font = `700 74px ${SERIF}`; c.fillText('契　約　書', CW / 2, 175);
-  c.fillStyle = red; c.fillRect(CW / 2 - 60, 200, 120, 3);
-  c.textAlign = 'left'; c.fillStyle = '#4a433b'; c.font = `29px ${SERIF}`;
-  ['一、立約人自願將本人姓名交由本所保管。', '二、姓名過於繁複者，本所得收回多餘筆畫，以剩餘筆畫另組新名。', '三、新名一經簽發即生效力，收回之筆畫恕不退還。']
-    .forEach((t, i) => c.fillText(t, 96, 280 + i * 52));
-  c.fillStyle = '#6b5f50'; c.font = `27px ${SERIF}`; c.fillText('立約人姓名（請手寫）', PAD.x + 4, PAD.y - 22);
+  c.fillStyle = '#1d1a17'; c.font = `700 74px ${SERIF}`; c.fillText('契　約　書', CW / 2, 190);
+  c.fillStyle = red; c.fillRect(CW / 2 - 60, 215, 120, 3);
+  c.textAlign = 'left'; c.fillStyle = '#6b5f50'; c.font = `27px ${SERIF}`; c.fillText('姓名', PAD.x + 4, PAD.y - 22);
   c.strokeStyle = '#c8b89b'; c.lineWidth = 3; c.strokeRect(PAD.x, PAD.y, PAD.w, PAD.h);
   c.strokeStyle = 'rgba(200,184,155,.45)'; c.lineWidth = 1.5; c.setLineDash([8, 10]);
   c.beginPath(); c.moveTo(PAD.x + 14, PAD.y + PAD.h / 2); c.lineTo(PAD.x + PAD.w - 14, PAD.y + PAD.h / 2); c.stroke(); c.setLineDash([]);
   c.fillStyle = '#4a433b'; c.font = `29px ${SERIF}`;
-  c.fillText('簽發日期：' + dateStr, 96, 960);
-  c.fillText('立約人　　　　　　（親簽如上）', 96, 1020);
-  c.fillText('受託人　改名契約所　狸掌櫃', 96, 1080);
+  c.fillText(dateStr, 96, SEAL.y + 10);
   c.strokeStyle = 'rgba(184,50,31,.28)'; c.lineWidth = 2; c.setLineDash([6, 8]);
   c.beginPath(); c.arc(SEAL.x, SEAL.y, SEAL.r, 0, Math.PI * 2); c.stroke(); c.setLineDash([]);
   c.fillStyle = 'rgba(184,50,31,.35)'; c.textAlign = 'center'; c.font = `24px ${SERIF}`; c.fillText('用印處', SEAL.x, SEAL.y + 8);
-  c.fillStyle = '#8a7d6b'; c.font = `22px ${SERIF}`; c.fillText('本契約書一式一份，由立約人自行保存。', CW / 2, CH - 90);
 }
 function drawSeal(c, x, y, r, alpha = 1) {
   c.save(); c.translate(x, y); c.rotate(-0.13); c.globalAlpha = alpha;
@@ -4473,7 +4433,7 @@ function deform(geo, rest, ox, oy) {
 }
 
 // ---------- layout / camera fit ----------
-const FIT_WRITE = { top: 60, bottom: 140, left: 0, right: 0 };
+const FIT_WRITE = { top: 24, bottom: 140, left: 0, right: 0 };
 let fit = { ...FIT_WRITE }, fitCur = null;
 function targetFit() {
   const w = innerWidth, h = innerHeight;
@@ -4513,10 +4473,6 @@ function drawInk() {
     c.stroke();
   };
   if (!ceremony) {
-    if (!strokes.length && !current) {
-      c.fillStyle = '#b3a283'; c.font = `15px ${SERIF}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText('用手指或滑鼠在這個框裡寫名字', PU_W / 2, PU_H / 2);
-    }
     for (const s of strokes.concat(current ? [current] : [])) line(s, BRUSH, '#1d1a17');
   } else {
     const { atoms, state } = ceremony;
@@ -4586,13 +4542,12 @@ cvs.addEventListener('pointermove', e => {
 const endStroke = () => {
   if (!current) return;
   strokes.push(current); current = null; inkDirty = true;
-  if (strokes.length === 1) say('很好，繼續寫。寫完了，就按下紅色的「簽約」。');
 };
 cvs.addEventListener('pointerup', endStroke);
 cvs.addEventListener('pointercancel', endStroke);
 document.addEventListener('touchmove', e => { if (e.target === cvs) e.preventDefault(); }, { passive: false });
 $('#undoBtn').onclick = () => { if (!locked) { strokes.pop(); inkDirty = true; } };
-$('#clearBtn').onclick = () => { if (!locked) { strokes = []; inkDirty = true; say('歡迎光臨。請在契約書的框裡，親手寫下你的名字。'); } };
+$('#clearBtn').onclick = () => { if (!locked) { strokes = []; inkDirty = true; } };
 
 // ---------- matching (Web Worker when possible, main thread fallback) ----------
 let worker = null;
@@ -4670,9 +4625,7 @@ function resamplePts(pts, step) {
 // where the ink is drawn to: a point in front of the paper, under the proprietor icon at the top of the screen
 let magicTarget = new T.Vector3(0, PH * 0.7, 2.2);
 function computeTarget() {
-  const r = document.querySelector('.keeper-icon').getBoundingClientRect(), cr = cvs.getBoundingClientRect();
-  const nx = ((r.left + r.width / 2 - cr.left) / cr.width) * 2 - 1, ny = -(((r.top + r.height / 2 - cr.top) / cr.height) * 2 - 1);
-  const p = new T.Vector3(nx, ny, 0.5).unproject(camera);
+  const p = new T.Vector3(0, 0.98, 0.5).unproject(camera);
   const dir = p.sub(camera.position).normalize();
   const world = camera.position.clone().add(dir.multiplyScalar(camera.position.z * 0.62));
   paperGroup.updateMatrixWorld();
@@ -4846,7 +4799,6 @@ function medLen(m) { let L = 0; for (let i = 2; i < m.length; i += 2) L += Math.
 async function sign() {
   if (locked || strokes.length < 2) return;
   locked = true; document.body.classList.add('locked', 'busy'); inkDirty = true;
-  say('嗯……讓我看看。這名字，筆畫可真不少。');
   tween(500, k => (lift = 0.05 * easeOut(k)));
   const px = strokes.map(s => s.map(p => ({ x: p.x, y: p.y })));
   const [res] = await Promise.all([runMatch(px), charsReady, sleep(900)]);
@@ -4857,7 +4809,6 @@ async function sign() {
   tween(400, k => (lift = 0.05 * (1 - k)));
 
   const cut = res.atoms.filter(a => !kept.has(a.id)).sort((a, b) => a.pts[0].x - b.pts[0].x);
-  say(cut.length ? '太複雜了，這麼多筆畫記不住的。多餘的，我替你收走。' : '咦？這名字已經夠簡潔了，一筆也不用收。');
   window.__phase = 'flying'; document.body.classList.add('absorb');
   computeTarget();
   if (cut.length) { sfx.whoosh(2.2, 0.16); buzz(15); }
@@ -4869,7 +4820,6 @@ async function sign() {
   await new Promise(r => { const chk = () => (made.every(s => s.done || (performance.now() - s.t0) / 1000 > s.rise + s.fly * 0.6) ? r() : setTimeout(chk, 50)); chk(); });
 
   document.body.classList.remove('absorb');
-  say('好了，清爽多了。剩下的線，正好拼成一個新名字。');
   window.__phase = 'glow';
   await tween(700, k => { ceremony.keptGlow = Math.sin(k * Math.PI * 0.5); inkDirty = true; });
   tween(1000, k => { ceremony.keptGlow = 1 - k; ceremony.keptAlpha = 1 - 0.82 * k; inkDirty = true; });
@@ -4914,7 +4864,6 @@ function showResult(res) {
   document.body.classList.remove('busy');
   window.__phase = 'result';
   const name = res.chars.map(c => c.char).join('');
-  say(`契約成立。從今天起，你的名字就是「${name}」。可別忘了。`);
   const box = $('#newName'); box.innerHTML = '';
   for (const c of res.chars) {
     const fig = document.createElement('figure');
@@ -4923,13 +4872,11 @@ function showResult(res) {
     for (const d of charData[c.char].s) { const p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', d); svg.appendChild(p); }
     fig.appendChild(svg); fig.appendChild(zhuyinEl(c.zhuyin)); box.appendChild(fig);
   }
-  $('#statStrokes').textContent = `${res.strokesBefore} → ${res.strokesAfter}`;
-  $('#statTaken').textContent = `${res.takenPct}%`;
   $('#bar').classList.add('hidden'); document.body.classList.add('done');
   $('#result').classList.remove('hidden');
   requestAnimationFrame(() => {
     const sh = $('#result');
-    fit = innerWidth >= 900 ? { top: 50, bottom: 40, left: 0, right: sh.offsetWidth + 60 } : { top: 56, bottom: sh.offsetHeight + 34, left: 0, right: 0 };
+    fit = innerWidth >= 900 ? { top: 30, bottom: 40, left: 0, right: sh.offsetWidth + 60 } : { top: 24, bottom: sh.offsetHeight + 34, left: 0, right: 0 };
   });
 }
 $('#againBtn').onclick = () => {
@@ -4941,7 +4888,6 @@ $('#againBtn').onclick = () => {
   $('#result').classList.add('hidden'); $('#bar').classList.remove('hidden');
   fit = { ...FIT_WRITE };
   flutter = 0.03;
-  say('還想再來一次？請重新寫下你的名字。');
 };
 
 // ---------- share image (same card as the 2D version) ----------
@@ -4952,14 +4898,13 @@ async function renderShareImage(res) {
   washi(c, w, h);
   const red = '#b8321f', ink = '#1d1a17', serif = SERIF;
   c.strokeStyle = red; c.lineWidth = 4; c.strokeRect(40, 40, w - 80, h - 80); c.lineWidth = 1.5; c.strokeRect(52, 52, w - 104, h - 104);
-  c.fillStyle = red; c.textAlign = 'center'; c.font = `700 56px ${serif}`;
-  c.fillText('改 名 契 約 書', w / 2, 150);
-  c.fillStyle = '#4a433b'; c.font = `34px ${serif}`;
-  c.fillText('往後在本所，你的名字是', w / 2, 240);
+  c.fillStyle = ink; c.textAlign = 'center'; c.font = `700 60px ${serif}`;
+  c.fillText('契　約　書', w / 2, 170);
+  c.fillStyle = red; c.fillRect(w / 2 - 60, 195, 120, 3);
   const n = res.chars.length, size = n === 1 ? 420 : 340, gap = 120;
   const total = n * size + (n - 1) * gap;
   res.chars.forEach((ch, i) => {
-    const x0 = (w - total) / 2 + i * (size + gap), y0 = 300;
+    const x0 = (w - total) / 2 + i * (size + gap), y0 = 290;
     c.save(); c.translate(x0, y0); c.scale(size / 1024, size / 1024); c.fillStyle = ink;
     for (const d of charData[ch.char].s) c.fill(new Path2D(d));
     c.restore();
@@ -4970,17 +4915,12 @@ async function renderShareImage(res) {
     zz.body.forEach((b, k) => c.fillText(b, zx, zy + k * 46));
     if (zz.tone) { c.font = `34px "Noto Sans TC","PingFang TC",sans-serif`; c.fillText(zz.tone, zx + 30, zy + (zz.body.length - 1) * 46 - 12); }
   });
-  c.textAlign = 'center'; c.font = `30px ${serif}`; c.fillStyle = '#4a433b';
-  c.fillText('筆畫數', w / 2 - 210, 760); c.fillText('被拿走的線', w / 2 + 210, 760);
-  c.fillStyle = ink; c.font = `700 64px ${serif}`;
-  c.fillText(`${res.strokesBefore} → ${res.strokesAfter}`, w / 2 - 210, 840);
-  c.fillText(`${res.takenPct}%`, w / 2 + 210, 840);
+  c.textAlign = 'center';
   const all = res.atoms.flatMap(a => a.pts);
   const minX = Math.min(...all.map(p => p.x)), maxX = Math.max(...all.map(p => p.x));
   const minY = Math.min(...all.map(p => p.y)), maxY = Math.max(...all.map(p => p.y));
   const bw = 600, bh = 220, sc = Math.min(bw / (maxX - minX || 1), bh / (maxY - minY || 1));
-  const ox = (w - (maxX - minX) * sc) / 2, oy = 920 + (bh - (maxY - minY) * sc) / 2;
-  c.font = `26px ${serif}`; c.fillStyle = '#8a7d6b'; c.fillText('原本的簽名（紅色虛線為被收走的筆畫）', w / 2, 905);
+  const ox = (w - (maxX - minX) * sc) / 2, oy = 790 + (bh - (maxY - minY) * sc) / 2;
   const kept = new Set(res.kept);
   c.lineCap = 'round'; c.lineJoin = 'round';
   for (const a of res.atoms) {
@@ -4997,7 +4937,7 @@ async function renderShareImage(res) {
   c.fillStyle = red; c.font = `700 40px ${serif}`; c.fillText('契約', 0, -6); c.fillText('成立', 0, 40);
   c.restore();
   c.fillStyle = '#8a7d6b'; c.font = `24px ${serif}`; c.textAlign = 'left';
-  c.fillText(dateStr + '　改名契約所', 90, h - 100);
+  c.fillText(dateStr, 90, h - 100);
   return cv;
 }
 $('#shareBtn').onclick = async () => {
