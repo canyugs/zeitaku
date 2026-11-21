@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>關於・資料來源與授權｜改名契約所</title>
+<meta name="description" content="改名契約所使用的資料、字型、程式庫與授權。">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
+<style>
+:root{--ink:#211d19;--ink-soft:#5b5045;--red:#b8321f;--serif:"Noto Serif TC","Noto Serif CJK TC","Source Han Serif TC","PMingLiU",serif}
+html{background:radial-gradient(ellipse at 50% 30%, #3b3530 0%, #231f1c 55%, #110e0c 100%) fixed #1a1613;min-height:100%}
+body{margin:0;padding:calc(env(safe-area-inset-top) + 20px) 14px calc(env(safe-area-inset-bottom) + 28px);font-family:var(--serif);color:var(--ink);-webkit-text-size-adjust:100%}
+main{max-width:640px;margin:0 auto;background:#efe6d2;border-radius:6px;padding:26px 22px 22px;box-shadow:0 18px 50px #0008;
+  background-image:radial-gradient(ellipse at 20% 0%, #f6efdf 0%, #efe6d2 60%, #e6dac2 100%)}
+h1{font-size:24px;margin:0 0 4px;letter-spacing:.08em}
+.lead{margin:0 0 18px;color:var(--ink-soft);font-size:15px;line-height:1.7}
+h2{font-size:17px;margin:22px 0 6px;padding-left:10px;border-left:3px solid var(--red);letter-spacing:.04em}
+p,li{font-size:15px;line-height:1.75}
+ul{margin:4px 0;padding-left:1.2em}
+a{color:var(--red);text-underline-offset:3px}
+.lic{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.lic a{display:inline-flex;align-items:center;min-height:36px;padding:2px 12px;border:1px solid #b8321f66;border-radius:999px;text-decoration:none;font-size:14px}
+.back{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;margin-top:22px;border-radius:999px;background:var(--ink);color:#efe6d2;text-decoration:none;font-size:16px}
+small{color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<main>
+  <h1>改名契約所</h1>
+  <p class="lead">資料來源與授權。本遊戲的程式、版面、文字、契約書與印章圖案、3D 場景與音效皆為本專案原創；以下列出所使用的外部資料、字型與程式庫。</p>
+
+  <h2>筆畫資料</h2>
+  <p><a href="https://github.com/skishore/makemeahanzi" target="_blank" rel="noopener">Make Me a Hanzi</a>（graphics.txt）：字形輪廓與筆畫中線，衍生自 Arphic PL KaitiM GB 與 Arphic PL UKai 字型，依 Arphic Public License 再散布；拼音核對使用其 dictionary.txt（衍生自 Unihan 與 CJKlib），授權為 GNU LGPL v3 或更新版本。</p>
+  <div class="lic"><a href="./ARPHICPL.TXT" target="_blank">Arphic Public License</a><a href="./LGPL" target="_blank">GNU LGPL</a><a href="./MMAH_COPYING" target="_blank">Make Me a Hanzi 授權說明</a></div>
+
+  <h2>注音</h2>
+  <p>以教育部《重編國語辭典修訂本》（經 <a href="https://www.moedict.tw/" target="_blank" rel="noopener">萌典</a> 查詢）每字第一個讀音為準，少數人名用字依常見讀音指定。辭典內容授權為 CC BY-ND 3.0 TW；本專案僅取用單字讀音並標示出處。</p>
+
+  <h2>字型</h2>
+  <p>契約書上的楷書：<a href="https://github.com/lxgw/LxgwWenkaiTC" target="_blank" rel="noopener">霞鶩文楷 TC（LXGW WenKai TC）</a>，僅內嵌本遊戲用到的字的子集，SIL Open Font License 1.1。</p>
+  <div class="lic"><a href="./OFL-LXGW.txt" target="_blank">SIL OFL 1.1</a></div>
+
+  <h2>3D 程式庫</h2>
+  <p><a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> r170，MIT License；已打包在頁面內，不連外部 CDN。</p>
+  <div class="lic"><a href="./three-LICENSE.txt" target="_blank">three.js MIT License</a></div>
+
+  <h2>音效</h2>
+  <p>3D 版的紙張、墨線、毛筆與蓋印聲皆以瀏覽器 Web Audio 即時合成，為本專案原創，未使用外部音檔。</p>
+
+  <h2>完整授權文件</h2>
+  <div class="lic"><a href="./LICENSES.txt" target="_blank">LICENSES.txt</a></div>
+  <p><small>玩法概念受 CAEN Games「今日からお前は」啟發；程式碼、美術與文字皆無沿用。</small></p>
+
+  <a class="back" id="back" href="./index.html">回到契約書</a>
+</main>
+<script>
+// came from one of the game pages: go back there (keeps the 2D / 3D choice)
+try { const r = document.referrer && new URL(document.referrer); if (r && r.origin === location.origin) document.getElementById('back').href = r.pathname + r.search; } catch (e) {}
+</script>
+</body>
+</html>

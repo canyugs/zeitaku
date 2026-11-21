@@ -21,7 +21,7 @@ body{
 #stage{position:fixed;inset:0}
 #stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
 .bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;gap:10px;
-  padding:8px 14px calc(env(safe-area-inset-bottom) + 30px);pointer-events:none}
+  padding:8px 14px calc(env(safe-area-inset-bottom) + 18px);pointer-events:none}
 .bar > *{pointer-events:auto}
 .btn{font:inherit;font-size:15px;border-radius:999px;padding:8px 16px;cursor:pointer;border:1.5px solid #e9dfc8aa;
   background:#ffffff10;color:#efe6d2}
@@ -29,7 +29,8 @@ body{
 .sheet .btn{border-color:var(--ink);color:var(--ink);background:transparent}
 .sheet .btn.primary{background:var(--ink);color:#efe6d2}
 .btn:disabled{opacity:.4}
-.count{font-size:14px;color:#cdbfa6;min-width:3em;text-align:center}
+.count{font-size:16px;color:#cdbfa6;min-width:3.6em;text-align:right;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.bar{gap:22px}
 .hanko-btn{width:76px;height:76px;border-radius:50%;border:4px solid var(--red);background:#fff4ea;color:var(--red);
   font:inherit;font-size:21px;font-weight:700;letter-spacing:.1em;cursor:pointer;
   box-shadow:0 0 0 3px #fff4ea, 0 0 0 5px var(--red), 0 6px 14px #0003;transform:rotate(-8deg);transition:transform .15s,opacity .2s;margin-left:6px}
@@ -37,9 +38,17 @@ body{
 .hanko-btn:not(:disabled):active{transform:rotate(-8deg) scale(.92)}
 .hanko-btn:disabled{opacity:.35;cursor:not-allowed}
 body.locked .bar .btn{opacity:.35;pointer-events:none}
-.credits{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 6px);text-align:center;font-size:10.5px;color:#9a8c77;pointer-events:none}
-.credits a,.credits button{pointer-events:auto;color:#c4b59c}
-.credits button{font:inherit;background:none;border:0;text-decoration:underline;cursor:pointer;padding:0 4px}
+.sound-btn{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:12px;width:36px;height:36px;padding:7px;border-radius:50%;border:1px solid #e9dfc855;background:#1d1a17aa;color:#c4b59c;cursor:pointer;z-index:5;opacity:.75}
+.sound-btn svg{width:100%;height:100%;display:block}
+.sound-btn .off{display:none}.sound-btn[aria-pressed="false"] .on{display:none}.sound-btn[aria-pressed="false"] .off{display:inline}
+body.done .sound-btn{opacity:0;pointer-events:none}
+.about-link{position:fixed;top:calc(env(safe-area-inset-top) + 12px);left:54px;width:36px;height:36px;padding:7px;box-sizing:border-box;border-radius:50%;border:1px solid #e9dfc855;background:#1d1a17aa;color:#c4b59c;z-index:5;opacity:.75;display:block}
+.about-link svg{width:100%;height:100%;display:block}
+body.locked:not(.done) .about-link{opacity:0;pointer-events:none}
+.gllost{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:radial-gradient(ellipse at 50% 40%, #3b3530 0%, #231f1c 55%, #110e0c 100%);color:#efe6d2;text-align:center;font-size:16px}
+.gllost-btns{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.gllost a.btn{text-decoration:none;display:inline-flex;align-items:center}
+.gllost.hidden,.gllost-btns.hidden{display:none}
 
 .sheet{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 22px);width:min(92vw,460px);transform:translate(-50%,0);
   background:radial-gradient(ellipse at 50% 45%, #efe6d0 40%, #ddcfb0 100%);border-radius:4px;padding:16px 18px 16px;box-shadow:0 18px 50px #000a;
@@ -64,15 +73,15 @@ body.locked .bar .btn{opacity:.35;pointer-events:none}
   .sheet{left:auto;right:4vw;bottom:auto;top:50%;transform:translate(0,-50%);width:300px}
   .sheet.hidden{transform:translate(140%,-50%)}
 }
-@media (max-width:899px){body.done .credits{display:none}}
 /* toggle between the framed 乙方 field and the whole contract while writing */
 .view-btn{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:12px;font-size:14px;padding:6px 14px;z-index:5;background:#1d1a17aa}
 body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
 /* phone in landscape: controls in a column on the right so the signing field can use the full height */
 @media (orientation: landscape) and (max-height: 520px){
-  .bar{left:auto;top:0;bottom:0;right:0;width:calc(104px + env(safe-area-inset-right));flex-direction:column;justify-content:center;gap:8px;
+  .bar{left:auto;top:0;bottom:0;right:0;width:calc(92px + env(safe-area-inset-right));flex-direction:column;justify-content:center;gap:8px;
     padding:8px calc(env(safe-area-inset-right) + 8px) 8px 8px;background:#110e0cd9}
-  .bar .btn{font-size:14px;min-height:44px;padding:4px 10px;width:100%}
+  .bar{gap:14px}
+  .bar .count{min-width:0;text-align:center}
   /* result card beside the contract instead of over it */
   .sheet{left:auto;right:calc(env(safe-area-inset-right) + 12px);bottom:auto;top:50%;transform:translate(0,-50%);width:min(300px,38vw);
     max-height:calc(100dvh - 16px);padding:12px 14px}
@@ -82,11 +91,17 @@ body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
   .newname svg{width:clamp(44px,8.5vw,64px);height:clamp(44px,8.5vw,64px)}
   .zy{font-size:12px}
   .result-btns .btn{padding:6px 12px}
-  body.done .credits{display:none}
-  .hanko-btn{width:58px;height:58px;font-size:18px;margin:4px 0 0}
+  .hanko-btn{width:58px;height:58px;font-size:18px;margin:0}
   .view-btn{right:auto;left:calc(env(safe-area-inset-left) + 10px)}
-  .credits{right:calc(104px + env(safe-area-inset-right));font-size:9.5px}
+  .sound-btn{top:auto;bottom:calc(env(safe-area-inset-bottom) + 10px);left:calc(env(safe-area-inset-left) + 10px)}
+  .about-link{top:auto;bottom:calc(env(safe-area-inset-bottom) + 10px);left:calc(env(safe-area-inset-left) + 52px)}
 }
+
+/* edge cases: stroke limit reached, match failed */
+.count.flash{animation:cflash 1.2s ease}
+@keyframes cflash{0%,60%{color:#f3b08a}100%{color:#cdbfa6}}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 56px);transform:translateX(-50%);z-index:60;max-width:min(88vw,420px);padding:10px 16px;border-radius:12px;background:#efe6d2;color:#211d19;font-size:15px;line-height:1.5;box-shadow:0 10px 30px #000a;text-align:center}
+.toast.hidden{display:none}
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
@@ -97,12 +112,11 @@ body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
 
 
 <div class="bar" id="bar">
-  <button class="btn" id="undoBtn" type="button">復原一筆</button>
-  <button class="btn" id="clearBtn" type="button">全部清除</button>
   <span class="count" id="count">0 筆</span>
   <button class="hanko-btn" id="signBtn" type="button" disabled><span>簽約</span></button>
 </div>
 
+<div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
 <section class="sheet hidden" id="result" aria-live="polite">
   <div class="stamp" aria-hidden="true">契約成立</div>
   <div class="newname" id="newName"></div>
@@ -114,10 +128,9 @@ body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
 
 <div class="nogl hidden" id="nogl">這台裝置無法顯示 3D 畫面。<a id="to2d" href="./2d.html">改玩 2D 版</a></div>
 
-<footer class="credits">
-  <button id="soundBtn" type="button" aria-pressed="true">音效：開</button>
-  筆畫：<a href="https://github.com/skishore/makemeahanzi" target="_blank" rel="noopener">Make Me a Hanzi</a>・注音：教育部辭典・three.js・<a id="licLink" href="./LICENSES.txt" target="_blank">授權</a>
-</footer>
+<button class="sound-btn" id="soundBtn" type="button" aria-pressed="true" aria-label="音效：開" title="音效"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="on" d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="off" d="M16.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+<a class="about-link" id="aboutLink" href="./about.html" target="_blank" rel="noopener" aria-label="關於・資料來源與授權" title="資料來源與授權"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/><path d="M12 10.8v6.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
+<div class="gllost hidden" id="gllost" role="alert"><p id="gllostMsg">畫面重新整理中…</p><div class="gllost-btns hidden" id="gllostBtns"><button class="btn" id="glReload" type="button">重新載入（保留簽名）</button><a class="btn" id="glTo2d" href="./2d.html">改用 2D 版</a></div></div>
 
 <script>
 /* three.js r170 — MIT License, see three-LICENSE.txt */
@@ -4444,7 +4457,22 @@ export function decodeGlyph(buf) {
 // ---------- store: fetch once, keep in memory, keep across visits in Cache Storage ----------
 export function createStore(base, { fetchImpl, version = '' } = {}) {
   const useCache = !!version;   // Cache Storage only for versioned (built) data; dev always refetches
-  const get = fetchImpl || (u => fetch(u));
+  // each request: 20 s timeout, up to 3 tries with back-off (flaky mobile networks); 4xx other than 408/429 fail at once
+  const get1 = fetchImpl || ((u, signal) => fetch(u, { signal }));
+  async function get(u) {
+    let err;
+    for (let i = 0; i < 3; i++) {
+      if (i) await new Promise(r => setTimeout(r, i * 800));
+      const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const to = setTimeout(() => ac && ac.abort(), 20000);
+      try {
+        const r = await get1(u, ac && ac.signal);
+        if (r.ok || (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429)) return r;
+        err = new Error(`HTTP ${r.status}`);
+      } catch (e) { err = e; } finally { clearTimeout(to); }
+    }
+    throw err;
+  }
   const stats = { requests: 0, bytes: 0, cacheHits: 0, decodeMs: 0 };
   let cacheP = null;
   const cache = () => (cacheP ??= (useCache && typeof caches !== 'undefined' ? caches.open('zeitaku-data').catch(() => null) : Promise.resolve(null)));
@@ -4461,9 +4489,11 @@ export function createStore(base, { fetchImpl, version = '' } = {}) {
   }
   let dbP = null;
   const shardP = new Map(), fine = new Map(), glyphP = new Map();
-  const db = () => (dbP ??= bin('data/index.bin').then(b => { const t = performance.now(); const d = decodeIndexBin(b); stats.decodeMs += performance.now() - t; return d; }));
+  // a failed load is forgotten, so the next 簽約 tries the network again
+  const forget = (map, k) => e => { if (map) map.delete(k); else dbP = null; throw e; };
+  const db = () => (dbP ??= bin('data/index.bin').then(b => { const t = performance.now(); const d = decodeIndexBin(b); stats.decodeMs += performance.now() - t; return d; }, forget(null)));
   function shard(s) {
-    if (!shardP.has(s)) shardP.set(s, (async () => { const d = await db(); return new Uint8Array(await bin(`data/med/${s}.bin`)); })());
+    if (!shardP.has(s)) shardP.set(s, (async () => { const d = await db(); return new Uint8Array(await bin(`data/med/${s}.bin`)); })().catch(forget(shardP, s)));
     return shardP.get(s);
   }
   return {
@@ -4486,7 +4516,7 @@ export function createStore(base, { fetchImpl, version = '' } = {}) {
     shardsFor: async list => { const d = await db(); return [...new Set(list.map(c => d.shardOf(c)))]; },
     prefetchShards: async ss => { await Promise.all(ss.map(shard)); },
     async glyph(c) {
-      if (!glyphP.has(c)) glyphP.set(c, db().then(d => bin(`data/glyph/${c.codePointAt(0).toString(16)}.bin`)).then(decodeGlyph));
+      if (!glyphP.has(c)) glyphP.set(c, db().then(d => bin(`data/glyph/${c.codePointAt(0).toString(16)}.bin`)).then(decodeGlyph).catch(forget(glyphP, c)));
       return glyphP.get(c);
     },
   };
@@ -4983,7 +5013,22 @@ function decodeGlyph(buf) {
 // ---------- store: fetch once, keep in memory, keep across visits in Cache Storage ----------
 function createStore(base, { fetchImpl, version = '' } = {}) {
   const useCache = !!version;   // Cache Storage only for versioned (built) data; dev always refetches
-  const get = fetchImpl || (u => fetch(u));
+  // each request: 20 s timeout, up to 3 tries with back-off (flaky mobile networks); 4xx other than 408/429 fail at once
+  const get1 = fetchImpl || ((u, signal) => fetch(u, { signal }));
+  async function get(u) {
+    let err;
+    for (let i = 0; i < 3; i++) {
+      if (i) await new Promise(r => setTimeout(r, i * 800));
+      const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const to = setTimeout(() => ac && ac.abort(), 20000);
+      try {
+        const r = await get1(u, ac && ac.signal);
+        if (r.ok || (r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429)) return r;
+        err = new Error(`HTTP ${r.status}`);
+      } catch (e) { err = e; } finally { clearTimeout(to); }
+    }
+    throw err;
+  }
   const stats = { requests: 0, bytes: 0, cacheHits: 0, decodeMs: 0 };
   let cacheP = null;
   const cache = () => (cacheP ??= (useCache && typeof caches !== 'undefined' ? caches.open('zeitaku-data').catch(() => null) : Promise.resolve(null)));
@@ -5000,9 +5045,11 @@ function createStore(base, { fetchImpl, version = '' } = {}) {
   }
   let dbP = null;
   const shardP = new Map(), fine = new Map(), glyphP = new Map();
-  const db = () => (dbP ??= bin('data/index.bin').then(b => { const t = performance.now(); const d = decodeIndexBin(b); stats.decodeMs += performance.now() - t; return d; }));
+  // a failed load is forgotten, so the next 簽約 tries the network again
+  const forget = (map, k) => e => { if (map) map.delete(k); else dbP = null; throw e; };
+  const db = () => (dbP ??= bin('data/index.bin').then(b => { const t = performance.now(); const d = decodeIndexBin(b); stats.decodeMs += performance.now() - t; return d; }, forget(null)));
   function shard(s) {
-    if (!shardP.has(s)) shardP.set(s, (async () => { const d = await db(); return new Uint8Array(await bin(`data/med/${s}.bin`)); })());
+    if (!shardP.has(s)) shardP.set(s, (async () => { const d = await db(); return new Uint8Array(await bin(`data/med/${s}.bin`)); })().catch(forget(shardP, s)));
     return shardP.get(s);
   }
   return {
@@ -5025,7 +5072,7 @@ function createStore(base, { fetchImpl, version = '' } = {}) {
     shardsFor: async list => { const d = await db(); return [...new Set(list.map(c => d.shardOf(c)))]; },
     prefetchShards: async ss => { await Promise.all(ss.map(shard)); },
     async glyph(c) {
-      if (!glyphP.has(c)) glyphP.set(c, db().then(d => bin(`data/glyph/${c.codePointAt(0).toString(16)}.bin`)).then(decodeGlyph));
+      if (!glyphP.has(c)) glyphP.set(c, db().then(d => bin(`data/glyph/${c.codePointAt(0).toString(16)}.bin`)).then(decodeGlyph).catch(forget(glyphP, c)));
       return glyphP.get(c);
     },
   };
@@ -5037,7 +5084,7 @@ const __m_shared_core_js = (function () {
 // 改名契約所 — shared core (original code). Used by both the 2D page (public/app.js) and the 3D page (public/3d/app3d.js).
 // Everything that decides WHAT happens lives here: contract wording, 民國 date, Kai font, matcher engine (worker + fallback),
 // new-name placement, 注音, seal, washi paper, share image. The two apps only decide how it LOOKS.
-const { prepareMatch, shortlist, finishMatch } = __m_matcher_js;
+const { prepareMatch, shortlist, finishMatch, buildPieces } = __m_matcher_js;
 const { createStore } = __m_shared_data_js;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -5047,6 +5094,30 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 // The matcher's per-drawing seed (greed / tie-break) hashes raw coordinates, so both apps must use the same units
 // for the same handwriting to get the same new name.
 const PAD_UNITS = 200;
+// input limits (both apps): beyond these a signature is scribbling; the cap keeps matching and redraws bounded
+const MAX_STROKES = 120, MAX_POINTS = 1200, MAX_MATCH_POINTS = 12000, MAX_MATCH_ATOMS = 120;
+// add a point to the stroke being written (clamped to the box, capped in count); returns false once the stroke is full
+function addPoint(st, p, h) {
+  if (st.length >= MAX_POINTS) return false;
+  st.push({ x: clamp(p.x, 0, PAD_UNITS), y: clamp(p.y, 0, h) });
+  return true;
+}
+// runMatch with an overall deadline, so a dead network ends in a message instead of a spinner forever
+// Matching time grows with the number of stroke pieces ("atoms"). A normal signature (≈20–60 atoms, a few hundred points)
+// goes to the matcher untouched; only a huge scribble is bounded: points thinned evenly (every k-th, ends kept) above
+// MAX_MATCH_POINTS, and if it still has more than MAX_MATCH_ATOMS pieces, only the first strokes (writing order) that fit are used.
+function boundMatchInput(px) {
+  const total = px.reduce((n, s) => n + s.length, 0);
+  if (total > MAX_MATCH_POINTS) { const k = Math.ceil(total / MAX_MATCH_POINTS); px = px.map(s => s.filter((p, i) => i % k === 0 || i === s.length - 1)); }
+  const atoms = n => buildPieces(px.slice(0, n)).atoms.length;
+  if (atoms(px.length) <= MAX_MATCH_ATOMS) return px;
+  let lo = 2, hi = px.length;   // largest prefix within the cap
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (atoms(m) <= MAX_MATCH_ATOMS) lo = m; else hi = m - 1; }
+  return px.slice(0, lo);
+}
+function runMatchSafe(px, ms = 45000) {
+  return Promise.race([runMatch(boundMatchInput(px)), sleep(ms).then(() => { throw new Error('match timeout'); })]);
+}
 
 // ---------- config: where the page finds matcher.js, data/ and the font (relative to the page) ----------
 const CFG = { base: './', abs: '' };
@@ -5329,13 +5400,13 @@ async function shareResult(lastResult) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-return { sleep, clamp, PAD_UNITS, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B, washi, vcol, vtext, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
+return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B, washi, vcol, vtext, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
 })();
 const __m_3d_app3d_js = (function () {
 // 改名契約所 3D — one sheet of washi paper (original code). Uses global THREE (vendor/three.min.js, bundled locally).
 const {
   initCore, sleep, clamp, KAI, dateZh, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B, washi, vcol, vtext, drawSeal,
-  runMatch, prefetch, layoutNewName, medLen, nameFigures, shareResult,
+  runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, medLen, nameFigures, shareResult,
 } = __m_shared_core_js;
 const T = window.THREE;
 const $ = s => document.querySelector(s);
@@ -5411,7 +5482,7 @@ const sfx = {
     noise(ac, t, 0.08, { type: 'lowpass', f0: 900, q: 0.7, gain: 0.4 }); },
 };
 const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
-$('#soundBtn').onclick = () => { soundOn = !soundOn; $('#soundBtn').textContent = `音效：${soundOn ? '開' : '關'}`; $('#soundBtn').setAttribute('aria-pressed', soundOn); };
+$('#soundBtn').onclick = () => { soundOn = !soundOn; $('#soundBtn').setAttribute('aria-label', `音效：${soundOn ? '開' : '關'}`); $('#soundBtn').setAttribute('aria-pressed', soundOn); };
 
 // ---------- textures ----------
 // washi(), vcol(), vtext() come from shared/core.js
@@ -5443,21 +5514,30 @@ function drawPaperBase(c) {
 const paperBase = document.createElement('canvas'); paperBase.width = CW; paperBase.height = CH;
 const paperCv = document.createElement('canvas'); paperCv.width = CW; paperCv.height = CH;
 const inkCv = document.createElement('canvas'); inkCv.width = Math.round(PU_W * INK_K); inkCv.height = Math.round(PU_H * INK_K);
-const ictx = inkCv.getContext('2d');
+// CPU-backed 2D canvases: the ink canvas is uploaded to WebGL on every change while writing; a GPU-accelerated 2D canvas
+// would need a GPU→CPU readback per upload and holds extra GPU memory on phones
+const ictx = inkCv.getContext('2d', { willReadFrequently: true });
+paperCv.getContext('2d', { willReadFrequently: true }); paperBase.getContext('2d', { willReadFrequently: true });
 
 // ---------- three.js scene ----------
 let renderer;
 try {
-  renderer = new T.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  // phones: no MSAA buffers (a ≥1.5x screen hides the jaggies), default GPU, so the drawing buffers stay small
+  renderer = new T.WebGLRenderer({ antialias: !MOBILE, alpha: true, powerPreference: MOBILE ? 'default' : 'high-performance' });
 } catch (e) {
   $('#nogl').classList.remove('hidden'); $('#bar').classList.add('hidden');
   throw e;
 }
-const DPR_CAP = MOBILE ? 1.6 : 2;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, DPR_CAP));
+const DPR_CAP = MOBILE ? 1.5 : 2;
+const MAX_BUF_PX = MOBILE ? 1.6e6 : 4.2e6;   // cap the drawing buffer area (412x915 @1.5 ≈ 0.85 Mpx)
+function pixelRatio() {
+  const pr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+  return Math.max(1, Math.min(pr, Math.sqrt(MAX_BUF_PX / Math.max(1, innerWidth * innerHeight))));
+}
+renderer.setPixelRatio(pixelRatio());
 renderer.outputColorSpace = T.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = T.PCFSoftShadowMap;
+renderer.shadowMap.type = MOBILE ? 1 /* THREE.PCFShadowMap (not in the slim bundle) */ : T.PCFSoftShadowMap;
 $('#stage').appendChild(renderer.domElement);
 
 const scene = new T.Scene();
@@ -5494,6 +5574,8 @@ paperGroup.add(paperBack);
 
 const inkTex = new T.CanvasTexture(inkCv);
 inkTex.colorSpace = T.SRGBColorSpace; inkTex.anisotropy = 4;
+// re-uploaded on every ink change while writing: no mipmap chain to rebuild each time (it is viewed at ~1:1 anyway)
+inkTex.generateMipmaps = false; inkTex.minFilter = 1006;   // THREE.LinearFilter (not in the slim bundle)
 const [ix0, iy0] = padToLocal(0, 0), [ix1, iy1] = padToLocal(PU_W, PU_H);
 const inkGeo = new T.PlaneGeometry(ix1 - ix0, iy0 - iy1, 24, 9);
 const inkMesh = new T.Mesh(inkGeo, new T.MeshStandardMaterial({ map: inkTex, transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
@@ -5566,9 +5648,12 @@ function setFocus(on, ms = 1100) {
   return tween(ms * Math.abs(to - from), k => { if (tok === focusTok) focusK = from + (to - from) * easeInOut(k); })
     .then(() => { if (tok === focusTok) window.__view = on ? 'focus' : 'full'; });
 }
+let lastSize = '';
 function resize() {
   if (!showingResult && typeof sideBar === 'function') fit = writeFit();
-  renderer.setSize(innerWidth, innerHeight, false);
+  // Android fires resize whenever the URL bar slides; only reallocate the drawing buffer when it really changes
+  const pr = pixelRatio(), key = `${innerWidth}x${innerHeight}@${pr}`;
+  if (key !== lastSize) { lastSize = key; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false); }
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   if (!fitCur) fitCur = targetFit();
 }
@@ -5583,6 +5668,17 @@ let lastResult = null;
 let ceremony = null; // { atoms, state[], keptGlow, keptAlpha, glyphs:[{ch, t, strokes:[{path, med, len, p}]}] }
 let inkDirty = true;
 
+let inkTail = false, tailFrom = 0;
+function drawTail() {   // while writing: only the new part of the current stroke
+  if (!current || ceremony) return;
+  const c = ictx, seg = current.slice(Math.max(0, tailFrom - 1));
+  c.setTransform(INK_K, 0, 0, INK_K, 0, 0); c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#1d1a17'; c.lineWidth = BRUSH;
+  c.beginPath(); seg.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+  if (seg.length === 1) c.lineTo(seg[0].x + 0.1, seg[0].y);
+  c.stroke();
+  tailFrom = current.length; inkTex.needsUpdate = true;
+}
+function inkMeta() { $('#count').textContent = `${strokes.length} 筆`; $('#signBtn').disabled = locked || strokes.length < 2; }
 function drawInk() {
   const c = ictx, K = INK_K;
   c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, inkCv.width, inkCv.height);
@@ -5646,31 +5742,44 @@ function hitPad(e) {
 const inside = (p, m = 0) => p && p.x > -m && p.y > -m && p.x < PU_W + m && p.y < PU_H + m;
 const cl = p => ({ x: clamp(p.x, 0, PU_W), y: clamp(p.y, 0, PU_H) });
 const cvs = renderer.domElement;
+let pid = null;
 cvs.addEventListener('pointerdown', e => {
   audio();
-  if (locked) return;
+  if (locked || glLost || current) return;   // one pen at a time: a second finger is ignored
   const p = hitPad(e);
   if (!inside(p, 12)) return;
   e.preventDefault();
+  if (strokes.length >= MAX_STROKES) { flashCount(); return; }
   cvs.setPointerCapture(e.pointerId);
-  current = [cl(p)]; inkDirty = true;
+  current = [cl(p)]; pid = e.pointerId; tailFrom = 0; inkTail = true;
 });
 cvs.addEventListener('pointermove', e => {
-  if (!current) return;
+  if (!current || e.pointerId !== pid) return;
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
-  for (const ev of evs.length ? evs : [e]) { const p = hitPad(ev); if (p) current.push(cl(p)); }
-  inkDirty = true;
+  for (const ev of evs.length ? evs : [e]) { const p = hitPad(ev); if (p && !addPoint(current, p, PU_H)) break; }
+  inkTail = true;
 });
-const endStroke = () => {
-  if (!current) return;
-  strokes.push(current); current = null; inkDirty = true;
+const endStroke = e => {
+  if (!current || (e && e.pointerId !== undefined && e.pointerId !== pid)) return;
+  if (!locked) strokes.push(current);
+  if (inkTail) drawTail();
+  current = null; pid = null; inkTail = false; inkMeta();
   prefetch(strokes);
 };
 cvs.addEventListener('pointerup', endStroke);
 cvs.addEventListener('pointercancel', endStroke);
+// leaving the tab / rotating mid-stroke: finish the stroke where it is
+document.addEventListener('visibilitychange', () => { if (document.hidden) endStroke(); });
+addEventListener('orientationchange', () => endStroke());
+function flashCount() {
+  const c = $('#count'); c.textContent = `${strokes.length} 筆・已滿`; c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+  setTimeout(() => (inkDirty = true), 1400);
+}
+function toast(msg, ms = 4200) {
+  const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), ms);
+}
 document.addEventListener('touchmove', e => { if (e.target === cvs) e.preventDefault(); }, { passive: false });
-$('#undoBtn').onclick = () => { if (!locked) { strokes.pop(); inkDirty = true; } };
-$('#clearBtn').onclick = () => { if (!locked) { strokes = []; inkDirty = true; } };
 
 // ---------- matching (Web Worker when possible, main thread fallback) ----------
 // runMatch() lives in shared/core.js
@@ -5880,15 +5989,27 @@ async function stampSeal() {
 
 async function sign() {
   if (locked || strokes.length < 2) return;
-  locked = true; document.body.classList.add('locked', 'busy'); inkDirty = true;
+  locked = true; window.__signs = (window.__signs || 0) + 1; document.body.classList.add('locked', 'busy'); inkDirty = true;
+  current = null; pid = null;
   const px = strokes.map(s => s.map(p => ({ x: p.x, y: p.y })));
-  const matching = runMatch(px);
+  const matching = runMatchSafe(px);
+  matching.catch(() => {});   // handled below
   // zoom out to the whole contract first (matching runs meanwhile), then the ceremony starts
   window.__phase = 'zoomout';
   wholeK = 1;   // (portrait) pull all the way back so the whole contract is in view
   await setFocus(false, 1300);
   tween(500, k => (lift = 0.05 * easeOut(k)));
-  const [res] = await Promise.all([matching, charsReady, sleep(600)]);
+  let res;
+  try { [res] = await Promise.all([matching, charsReady, sleep(600)]); }
+  catch (err) {   // network down / data failed: say so and hand the signature back
+    console.warn('match failed', err);
+    window.__phase = 'write'; window.__matchError = String(err);
+    tween(400, k => (lift = 0.05 * (1 - k))); wholeK = 0;
+    locked = false; document.body.classList.remove('locked', 'busy'); inkDirty = true;
+    toast('網路不穩，這次沒簽成。簽名還在，請再按一次「簽約」。');
+    setFocus(true);
+    return;
+  }
   if (innerWidth / innerHeight < 0.9) tween(900, k => (wholeK = 1 - easeInOut(k)));   // then ease in on the name column for the ceremony
   else wholeK = 0;
   lastResult = res; window.__lastResult = res;
@@ -5981,9 +6102,45 @@ function loop(now) {
   for (const st of strips) updateStrip(st, now, dt);
   updateParticles(dt);
   for (let i = strips.length - 1; i >= 0; i--) if (strips[i].done) strips.splice(i, 1);
-  if (inkDirty) { inkDirty = false; drawInk(); }
+  if (glLost) return;
+  if (inkDirty) { inkDirty = false; inkTail = false; drawInk(); tailFrom = current ? current.length : 0; }
+  else if (inkTail) { inkTail = false; drawTail(); }
   renderer.render(scene, camera);
 }
+
+// ---------- GPU context loss (phones drop WebGL under memory pressure / GPU resets) ----------
+// three.js re-creates its GL state on restore; we re-upload the canvas textures and keep the strokes. If the context
+// does not come back, offer a reload that keeps the strokes (sessionStorage) or the 2D version — never a blank page.
+let glLost = false, glLostTimer = 0;
+const SAVE_KEY = 'zeitaku.strokes';
+const saveStrokes = () => { try { if (!locked && strokes.length) sessionStorage.setItem(SAVE_KEY, JSON.stringify(strokes)); } catch (e) {} };
+cvs.addEventListener('webglcontextlost', e => {
+  e.preventDefault();   // allow restore
+  glLost = true; current = null; saveStrokes();
+  $('#gllostMsg').textContent = '畫面重新整理中…'; $('#gllostBtns').classList.add('hidden'); $('#gllost').classList.remove('hidden');
+  clearTimeout(glLostTimer);
+  glLostTimer = setTimeout(() => {
+    $('#gllostMsg').textContent = '這台手機的 3D 畫面暫時停止了。你的簽名已保留。';
+    $('#gllostBtns').classList.remove('hidden');
+  }, 2500);
+}, false);
+cvs.addEventListener('webglcontextrestored', () => {
+  glLost = false; clearTimeout(glLostTimer);
+  for (const t of [paperTex, inkTex, dotTex]) t.needsUpdate = true;
+  lastSize = ''; resize(); inkDirty = true;
+  $('#gllost').classList.add('hidden');
+  try { sessionStorage.removeItem(SAVE_KEY); } catch (e) {}
+}, false);
+$('#glReload').onclick = () => { saveStrokes(); location.reload(); };
+$('#glTo2d').href = $('#to2d').getAttribute('href');
+// restore strokes kept from a lost context / reload
+try {
+  const kept = JSON.parse(sessionStorage.getItem(SAVE_KEY) || 'null');
+  sessionStorage.removeItem(SAVE_KEY);
+  if (Array.isArray(kept) && kept.length && kept.every(st => Array.isArray(st) && st.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)))) {
+    strokes = kept; inkDirty = true; prefetch(strokes);
+  }
+} catch (e) {}
 
 // ---------- boot ----------
 washi(paperCv.getContext('2d'), CW, CH); paperTex.needsUpdate = true;
@@ -6009,6 +6166,7 @@ window.__game = {
   strokeCount: () => strokes.length,
   prefetch: () => prefetch(strokes, 0),   // what a finished stroke triggers
   sign,
+  glInfo: () => ({ ...renderer.info.memory, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs ? renderer.info.programs.length : null, pr: renderer.getPixelRatio() }),
 };
 
 return {  };
