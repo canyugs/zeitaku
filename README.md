@@ -7,6 +7,8 @@
 - [3D 版](https://canyugs.github.io/zeitaku/)
 - [2D 版](https://canyugs.github.io/zeitaku/2d.html)
 
+2D 與 3D 版共用同一套邏輯，只有呈現方式不同。
+
 ## 致謝
 
 第三方程式與資料的授權說明見 [LICENSES.txt](LICENSES.txt)。
