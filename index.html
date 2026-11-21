@@ -65,8 +65,12 @@ body.locked:not(.done) .about-link{opacity:0;pointer-events:none}
 .zy .tone{position:absolute;left:100%;top:-.3em;font-style:normal;font-size:.85em}
 .zy .dot{font-style:normal}
 .result-btns{display:flex;justify-content:center;gap:12px}
-.nogl{position:fixed;inset:auto 0 45% 0;text-align:center;font-size:16px;color:#efe6d2}
-.nogl a{color:#f3d9a0}
+.nogl{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:24px;text-align:center;font-size:16px;color:#efe6d2;z-index:40}
+.nogl.hidden{display:none}
+.nogl p{margin:6px 0;max-width:420px;line-height:1.6}
+.nogl .nogl-tip{font-size:14px;color:#cdbfa6}
+.nogl a.btn{display:inline-flex;align-items:center;text-decoration:none;color:#efe6d2}
+.nogl .nogl-why{font-size:11px;color:#8c7f6c;word-break:break-all;font-family:system-ui,sans-serif}
 .hidden{display:none}
 .sheet.hidden{display:block}
 @media (min-width:900px){
@@ -126,11 +130,11 @@ body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
   </div>
 </section>
 
-<div class="nogl hidden" id="nogl">這台裝置無法顯示 3D 畫面。<a id="to2d" href="./2d.html">改玩 2D 版</a></div>
+<div class="nogl hidden" id="nogl" role="alert"><p>這台裝置目前無法顯示 3D 畫面。</p><p class="nogl-tip">如果剛才畫面當掉過，Chrome 可能暫時停用了這個網站的 3D：請關掉這個分頁再重開，或重新啟動 Chrome。</p><p><a class="btn" id="to2d" href="./2d.html">改玩 2D 版</a></p><p class="nogl-why" id="noglWhy"></p></div>
 
 <button class="sound-btn" id="soundBtn" type="button" aria-pressed="true" aria-label="音效：開" title="音效"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="on" d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="off" d="M16.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
 <a class="about-link" id="aboutLink" href="./about.html" target="_blank" rel="noopener" aria-label="關於・資料來源與授權" title="資料來源與授權"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor"/><path d="M12 10.8v6.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
-<div class="gllost hidden" id="gllost" role="alert"><p id="gllostMsg">畫面重新整理中…</p><div class="gllost-btns hidden" id="gllostBtns"><button class="btn" id="glReload" type="button">重新載入（保留簽名）</button><a class="btn" id="glTo2d" href="./2d.html">改用 2D 版</a></div></div>
+<div class="gllost hidden" id="gllost" role="alert"><p id="gllostMsg">畫面重新整理中…</p><p class="nogl-why" id="gllostWhy"></p><div class="gllost-btns hidden" id="gllostBtns"><button class="btn" id="glReload" type="button">重新載入（保留簽名）</button><a class="btn" id="glTo2d" href="./2d.html">改用 2D 版</a></div></div>
 
 <script>
 /* three.js r170 — MIT License, see three-LICENSE.txt */
@@ -5153,7 +5157,6 @@ const C_BODY = [
   { text: '甲方天狗庵女將玄媽，收乙方於本館作女中，議定條款如左，各自信守，不得反悔' },
   { head: '壹、工作項目', text: '乙方聽從差遣，司燒湯刷池奉茶送膳' },
   { head: '貳、工作地點', text: '乙方於北投溪畔本館服勞，不得擅離' },
-  { head: '參、姓名', text: '乙方姓名過繁者，甲方得收回多餘筆畫，另行賜名，乙方不得異議' },
 ];
 const C_PARTY_A = '甲方　天狗庵女將　玄媽', C_PARTY_B = '乙方';
 
@@ -5520,12 +5523,46 @@ const ictx = inkCv.getContext('2d', { willReadFrequently: true });
 paperCv.getContext('2d', { willReadFrequently: true }); paperBase.getContext('2d', { willReadFrequently: true });
 
 // ---------- three.js scene ----------
+// Lenient WebGL start: three.js r170 needs WebGL2, so try WebGL2 with progressively safer options (never
+// failIfMajorPerformanceCaveat, no stencil, no extensions required). Only if every try fails is the 2D link shown,
+// with the specific reason on screen so a report can be diagnosed.
+function createGL() {
+  const cv = document.createElement('canvas');
+  let status = '';
+  cv.addEventListener('webglcontextcreationerror', e => { if (e.statusMessage) status = e.statusMessage; }, false);
+  const base = { alpha: true, depth: true, stencil: false, premultipliedAlpha: true, preserveDrawingBuffer: false, failIfMajorPerformanceCaveat: false };
+  const tries = [
+    // phones: no MSAA buffers (a ≥1.5x screen hides the jaggies), default GPU, so the drawing buffers stay small
+    { ...base, antialias: !MOBILE, powerPreference: MOBILE ? 'default' : 'high-performance' },
+    { ...base, antialias: false, powerPreference: 'default' },
+    { ...base, antialias: false, powerPreference: 'low-power' },
+    { antialias: false, failIfMajorPerformanceCaveat: false },
+  ];
+  const notes = [];
+  for (const o of tries) {
+    try {
+      const gl = cv.getContext('webgl2', o);
+      if (gl && !gl.isContextLost()) return { cv, gl, o };
+      notes.push(gl ? 'context lost at start' : (status || 'getContext webgl2 → null'));
+    } catch (e) { notes.push(String(e.message || e)); }
+  }
+  let v1 = false;
+  try { const c1 = document.createElement('canvas'); v1 = !!(c1.getContext('webgl') || c1.getContext('experimental-webgl')); } catch (e) {}
+  const err = new Error(`WebGL2 無法建立（${[...new Set(notes)].join('；')}）；WebGL1 ${v1 ? '可用' : '也不可用'}`);
+  err.v1 = v1; throw err;
+}
+function showNoGL(e) {
+  console.warn('3D unavailable:', e);
+  $('#noglWhy').textContent = '原因：' + (e && e.message ? e.message : String(e)) + `；UA ${navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 90)}`;
+  $('#nogl').classList.remove('hidden'); $('#bar').classList.add('hidden'); $('#viewBtn').classList.add('hidden');
+}
 let renderer;
 try {
-  // phones: no MSAA buffers (a ≥1.5x screen hides the jaggies), default GPU, so the drawing buffers stay small
-  renderer = new T.WebGLRenderer({ antialias: !MOBILE, alpha: true, powerPreference: MOBILE ? 'default' : 'high-performance' });
+  const { cv, gl, o } = createGL();
+  renderer = new T.WebGLRenderer({ canvas: cv, context: gl, antialias: !!o.antialias, alpha: true, powerPreference: o.powerPreference || 'default' });
+  window.__glOpts = o;
 } catch (e) {
-  $('#nogl').classList.remove('hidden'); $('#bar').classList.add('hidden');
+  showNoGL(e);
   throw e;
 }
 const DPR_CAP = MOBILE ? 1.5 : 2;
@@ -6121,6 +6158,7 @@ cvs.addEventListener('webglcontextlost', e => {
   clearTimeout(glLostTimer);
   glLostTimer = setTimeout(() => {
     $('#gllostMsg').textContent = '這台手機的 3D 畫面暫時停止了。你的簽名已保留。';
+    $('#gllostWhy').textContent = `原因：瀏覽器收回了 3D 繪圖（webglcontextlost，${Math.round(performance.now() / 1000)} 秒時）`;
     $('#gllostBtns').classList.remove('hidden');
   }, 2500);
 }, false);
