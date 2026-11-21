@@ -22,3 +22,4 @@
 3D 版（3d/、dist/改名契約所3D.html）：
 - three.js r170（https://threejs.org），MIT License，見 3d/vendor/three-LICENSE.txt（單檔版附 three-LICENSE.txt）。已打包在本機檔案內，執行時不連 CDN。
 - 3D 場景、飛散的墨線與粒子、印章圖案、音效（Web Audio 即時合成）皆為本專案原創。
+- 契約書上的楷書字型：霞鶩文楷 TC（LXGW WenKai TC）子集，SIL Open Font License 1.1，見 OFL-LXGW.txt。
