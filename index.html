@@ -65,12 +65,35 @@ body.locked .bar .btn{opacity:.35;pointer-events:none}
   .sheet.hidden{transform:translate(140%,-50%)}
 }
 @media (max-width:899px){body.done .credits{display:none}}
+/* toggle between the framed 乙方 field and the whole contract while writing */
+.view-btn{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:12px;font-size:14px;padding:6px 14px;z-index:5;background:#1d1a17aa}
+body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
+/* phone in landscape: controls in a column on the right so the signing field can use the full height */
+@media (orientation: landscape) and (max-height: 520px){
+  .bar{left:auto;top:0;bottom:0;right:0;width:calc(104px + env(safe-area-inset-right));flex-direction:column;justify-content:center;gap:8px;
+    padding:8px calc(env(safe-area-inset-right) + 8px) 8px 8px;background:#110e0cd9}
+  .bar .btn{font-size:14px;min-height:44px;padding:4px 10px;width:100%}
+  /* result card beside the contract instead of over it */
+  .sheet{left:auto;right:calc(env(safe-area-inset-right) + 12px);bottom:auto;top:50%;transform:translate(0,-50%);width:min(300px,38vw);
+    max-height:calc(100dvh - 16px);padding:12px 14px}
+  .sheet.hidden{transform:translate(140%,-50%)}
+  .newname{flex-direction:row;justify-content:center;gap:4px;margin:10px 0 10px}
+  .newname figure{margin:0}
+  .newname svg{width:clamp(44px,8.5vw,64px);height:clamp(44px,8.5vw,64px)}
+  .zy{font-size:12px}
+  .result-btns .btn{padding:6px 12px}
+  body.done .credits{display:none}
+  .hanko-btn{width:58px;height:58px;font-size:18px;margin:4px 0 0}
+  .view-btn{right:auto;left:calc(env(safe-area-inset-left) + 10px)}
+  .credits{right:calc(104px + env(safe-area-inset-right));font-size:9.5px}
+}
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
 </head>
 <body>
 <div id="stage" aria-label="契約書（請在框內手寫姓名）"></div>
+<button class="btn view-btn" id="viewBtn" type="button">看契約全文</button>
 
 
 <div class="bar" id="bar">
@@ -5329,7 +5352,7 @@ charsReady.then(d => (charData = d));
 // ---------- paper geometry (paper canvas px ↔ paper local units) ----------
 const CW = 1400, CH = 1000;                  // paper texture size (landscape card)
 const PW = 3, PH = PW * CH / CW;             // paper size in world units
-const PAD = { x: 130, y: 240, w: 160, h: 670 }; // tall signing space under 「乙方」 (canvas px); written top-to-bottom
+const PAD = { x: 45, y: 235, w: 290, h: 675 };  // signing space under 「乙方」 (canvas px), as wide as the left margin allows; written top-to-bottom
 const PU_W = 200, PU_H = PU_W * PAD.h / PAD.w;  // writing box in "pad units" (≈ the scale the 2D matcher saw per character)
 const VERTICAL = PU_H > PU_W;
 const S = PAD.w / PU_W;                      // canvas px per pad unit
@@ -5499,26 +5522,52 @@ function deform(geo, rest, ox, oy) {
 }
 
 // ---------- layout / camera fit ----------
+// focusK 0 = whole contract, 1 = camera framed on the 乙方 signing field (it fills most of the screen); tweened, never jumps
 const FIT_WRITE = { top: 24, bottom: 140, left: 0, right: 0 };
-let fit = { ...FIT_WRITE }, fitCur = null;
-let showingResult = false;
+// controls side-mounted (phone in landscape, see style3d.css): keep the right edge clear instead of the bottom
+const sideBar = () => { const b = $('#bar'); return b && b.offsetHeight > innerHeight * 0.6 ? b.offsetWidth : 0; };
+const writeFit = () => (sideBar() ? { top: 14, bottom: 22, left: 0, right: sideBar() + 8 } : { ...FIT_WRITE });
+const FIT_FOCUS = { top: 58, bottom: 128, left: 10, right: 10 };
+const R_FOCUS = { x0: PAD.x - 22, x1: PAD.x + PAD.w + 22, y0: 96, y1: PAD.y + PAD.h + 22 };
+const ROT_FULL = [-0.3, 0.04, 0.02], ROT_FOCUS = [-0.1, 0.01, 0.0];   // the paper also turns towards the camera while signing
+let fit = writeFit(), fitCur = null;
+let showingResult = false, focusK = 0, focusTarget = 0, focusTok = 0, wholeK = 0;   // wholeK: portrait only, 1 = the whole card in view
 const wc = new T.Vector3();
-function targetFit() {
+function fitFor(R, fit, m) {
   const w = innerWidth, h = innerHeight;
-  const portrait = w / h < 0.9;
-  const R = portrait && !showingResult ? { x0: 70, x1: 650, y0: 40, y1: CH - 40 } : { x0: 0, x1: CW, y0: 0, y1: CH };
   const availH = Math.max(120, h - fit.top - fit.bottom), availW = Math.max(160, w - fit.left - fit.right);
   const tan = Math.tan(T.MathUtils.degToRad(camera.fov / 2));
   const rw = (R.x1 - R.x0) / CW * PW, rh = (R.y1 - R.y0) / CH * PH;
   const ph = rh * Math.cos(paperGroup.rotation.x) * 1.06, pw = rw * 1.05;
-  const m = portrait && !showingResult ? 0.98 : 0.94;
   const d = Math.max(ph / (2 * tan * (availH / h) * m), pw / (2 * tan * (w / h) * (availW / w) * m));
   const visH = 2 * d * tan, visW = visH * w / h;
   const [cx, cy] = pxToLocal((R.x0 + R.x1) / 2, (R.y0 + R.y1) / 2);
   paperGroup.updateMatrixWorld(); wc.set(cx, cy, 0); paperGroup.localToWorld(wc);
   return { d: d + wc.z, x: wc.x + (fit.right - fit.left) / 2 / w * visW, y: wc.y - (fit.bottom - fit.top) / 2 / h * visH };
 }
+function targetFit() {
+  const portrait = innerWidth / innerHeight < 0.9;
+  let full = fitFor(portrait && !showingResult ? { x0: 70, x1: 650, y0: 40, y1: CH - 40 } : { x0: 0, x1: CW, y0: 0, y1: CH }, fit, portrait && !showingResult ? 0.98 : 0.94);
+  if (portrait && !showingResult && wholeK > 0) {
+    const w = fitFor({ x0: 0, x1: CW, y0: 0, y1: CH }, fit, 0.94), k = wholeK;
+    full = { d: full.d + (w.d - full.d) * k, x: full.x + (w.x - full.x) * k, y: full.y + (w.y - full.y) * k };
+  }
+  if (focusK <= 0) return full;
+  const sb = sideBar();
+  const f = fitFor(R_FOCUS, sb ? { top: 8, bottom: 16, left: 64, right: sb + 6 } : { ...FIT_FOCUS, bottom: ($('#bar').offsetHeight || 120) + 6 }, 0.99), k = focusK;
+  return { d: full.d + (f.d - full.d) * k, x: full.x + (f.x - full.x) * k, y: full.y + (f.y - full.y) * k };
+}
+function setFocus(on, ms = 1100) {
+  focusTarget = on ? 1 : 0;
+  const tok = ++focusTok, from = focusK, to = focusTarget;
+  window.__view = on ? 'zooming-in' : 'zooming-out';
+  $('#viewBtn').textContent = on ? '看契約全文' : '回到簽名欄';
+  if (from === to) { window.__view = on ? 'focus' : 'full'; return Promise.resolve(); }
+  return tween(ms * Math.abs(to - from), k => { if (tok === focusTok) focusK = from + (to - from) * easeInOut(k); })
+    .then(() => { if (tok === focusTok) window.__view = on ? 'focus' : 'full'; });
+}
 function resize() {
+  if (!showingResult && typeof sideBar === 'function') fit = writeFit();
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   if (!fitCur) fitCur = targetFit();
@@ -5832,9 +5881,16 @@ async function stampSeal() {
 async function sign() {
   if (locked || strokes.length < 2) return;
   locked = true; document.body.classList.add('locked', 'busy'); inkDirty = true;
-  tween(500, k => (lift = 0.05 * easeOut(k)));
   const px = strokes.map(s => s.map(p => ({ x: p.x, y: p.y })));
-  const [res] = await Promise.all([runMatch(px), charsReady, sleep(900)]);
+  const matching = runMatch(px);
+  // zoom out to the whole contract first (matching runs meanwhile), then the ceremony starts
+  window.__phase = 'zoomout';
+  wholeK = 1;   // (portrait) pull all the way back so the whole contract is in view
+  await setFocus(false, 1300);
+  tween(500, k => (lift = 0.05 * easeOut(k)));
+  const [res] = await Promise.all([matching, charsReady, sleep(600)]);
+  if (innerWidth / innerHeight < 0.9) tween(900, k => (wholeK = 1 - easeInOut(k)));   // then ease in on the name column for the ceremony
+  else wholeK = 0;
   lastResult = res; window.__lastResult = res;
   const kept = new Set(res.kept);
   ceremony = { atoms: res.atoms, state: res.atoms.map(a => (kept.has(a.id) ? 'kept' : 'ink')), cutGlow: 0, keptGlow: 0, keptAlpha: 1, glyphs: [] };
@@ -5885,7 +5941,7 @@ function showResult(res) {
   $('#result').classList.remove('hidden');
   requestAnimationFrame(() => {
     const sh = $('#result');
-    fit = innerWidth >= 900 ? { top: 30, bottom: 40, left: 0, right: sh.offsetWidth + 60 } : { top: 24, bottom: sh.offsetHeight + 34, left: 0, right: 0 };
+    fit = innerWidth >= 900 || (innerWidth > innerHeight && innerHeight <= 520) ? { top: 30, bottom: 40, left: 0, right: sh.offsetWidth + 60 } : { top: 24, bottom: sh.offsetHeight + 34, left: 0, right: 0 };
   });
 }
 $('#againBtn').onclick = () => {
@@ -5895,9 +5951,11 @@ $('#againBtn').onclick = () => {
   resetPaper(); inkDirty = true;
   document.body.classList.remove('locked', 'busy', 'done');
   $('#result').classList.add('hidden'); $('#bar').classList.remove('hidden');
-  fit = { ...FIT_WRITE }; showingResult = false;
+  fit = writeFit(); showingResult = false;
   flutter = 0.03;
+  setTimeout(() => { if (!locked) setFocus(true); }, 500);
 };
+$('#viewBtn').onclick = () => { if (!locked) setFocus(focusTarget < 1); };
 
 // ---------- share image: the aged card, vertical ----------
 // renderShareImage() lives in shared/core.js
@@ -5912,9 +5970,11 @@ function loop(now) {
   frames++; if (now - fpsT > 1000) { window.__fps = Math.round(frames * 1000 / (now - fpsT)); frames = 0; fpsT = now; }
   runTweens(now);
   flutter *= Math.exp(-dt * 2.2); jolt *= Math.exp(-dt * 5);
-  const tf = targetFit(), a = 1 - Math.exp(-dt * 5);
+  paperGroup.rotation.set(...ROT_FULL.map((r, i) => r + (ROT_FOCUS[i] - r) * focusK));
+  const tf = targetFit(), a = 1 - Math.exp(-dt * (tweens.size ? 14 : 5));
   fitCur.d += (tf.d - fitCur.d) * a; fitCur.x += (tf.x - fitCur.x) * a; fitCur.y += (tf.y - fitCur.y) * a;
-  camera.position.set(fitCur.x + 0.15, fitCur.y - 0.12, fitCur.d);
+  const off = 1 - 0.75 * focusK;   // slight 3/4 view on the whole contract, nearly head-on while signing
+  camera.position.set(fitCur.x + 0.15 * off, fitCur.y - 0.12 * off, fitCur.d);
   camera.lookAt(fitCur.x, fitCur.y, 0);
   deform(paperGeo, paperRest, 0, 0);
   deform(inkGeo, inkRest, inkMesh.position.x, inkMesh.position.y);
@@ -5927,7 +5987,8 @@ function loop(now) {
 
 // ---------- boot ----------
 washi(paperCv.getContext('2d'), CW, CH); paperTex.needsUpdate = true;
-kaiReady.then(() => { drawPaperBase(paperBase.getContext('2d')); resetPaper(); window.__paperReady = true; });
+kaiReady.then(() => { drawPaperBase(paperBase.getContext('2d')); resetPaper(); window.__paperReady = true; setTimeout(() => { if (!locked) setFocus(true); }, 900); });   // show the contract, then the camera moves in on the 乙方 field
+window.__view = 'full';
 drawInk();
 window.__phase = 'write';
 requestAnimationFrame(loop);
@@ -5943,6 +6004,7 @@ window.__game = {
   },
   padSize: () => ({ w: PU_W, h: PU_H }),
   setStrokes(s) { strokes = s; inkDirty = true; },
+  setFocus,
   getStrokes: () => strokes.map(st => st.map(p => ({ x: p.x, y: p.y }))),
   strokeCount: () => strokes.length,
   prefetch: () => prefetch(strokes, 0),   // what a finished stroke triggers

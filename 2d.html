@@ -142,6 +142,54 @@ body.done .credits{opacity:0}
   .btn{font-size:17px}
 }
 
+/* ---------- focused signing: the 乙方 field enlarged ---------- */
+.pad-tap{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);writing-mode:vertical-rl;font:inherit;font-size:calc(var(--fs) * .95);
+  letter-spacing:.25em;color:var(--red);background:#fff6ec;border:1.5px solid var(--red);border-radius:999px;padding:.7em .35em;cursor:pointer;
+  box-shadow:0 2px 8px #0002;animation:tapPulse 2.2s ease-in-out infinite;touch-action:manipulation}
+@keyframes tapPulse{0%,100%{box-shadow:0 0 0 0 #b8321f44}50%{box-shadow:0 0 0 8px #b8321f00}}
+.pad-wrap.inked .pad-tap,body.locked .pad-tap,body.signing .pad-tap{display:none}
+.signer{position:fixed;left:0;right:0;top:0;bottom:var(--bar);z-index:20;display:flex;flex-direction:column;align-items:center;
+  padding:calc(var(--safe-t) + 8px) 12px 8px;background:rgba(17,14,12,.88)}
+.signer.hidden{display:none}
+.signer-top{width:var(--sw);min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:#efe6d2;margin-bottom:8px}
+.signer-lbl{font-size:19px;letter-spacing:.12em;white-space:nowrap}
+.signer-lbl small{font-size:13px;letter-spacing:.04em;color:#cdbfa6;margin-left:.7em}
+.btn.ghost{font-size:14px;min-height:36px;padding:4px 14px}
+.signer-box{position:relative;width:var(--sw);height:var(--sh);flex:none;background-color:#ebe1c9;background-size:cover;background-position:12% 70%;
+  border-radius:3px;box-shadow:0 14px 40px #000b, inset 0 0 0 1px #0000000d}
+.signer-box::before,.signer-box::after{content:"";position:absolute;top:3%;bottom:3%;width:0;border-left:1.5px solid rgba(120,90,50,.2)}
+.signer-box::before{left:7%}.signer-box::after{right:7%}
+#bigPad{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair;display:block}
+.signer-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);writing-mode:vertical-rl;font-size:22px;letter-spacing:.3em;
+  color:rgba(91,80,69,.38);pointer-events:none}
+.signer-box.inked .signer-hint{display:none}
+.bar{z-index:30}
+
+/* ---------- phone in landscape while signing: controls on the sides, the box gets the full height ---------- */
+@media (orientation: landscape) and (max-height: 520px){
+  body.signing .bar{left:auto;top:0;bottom:0;right:0;height:auto;width:calc(var(--sbar-w) + env(safe-area-inset-right));flex-direction:column;
+    justify-content:center;gap:8px;padding:8px calc(env(safe-area-inset-right) + 8px) 8px 8px;background:#110e0cd9}
+  body.signing .bar .btn{font-size:14px;min-height:44px;padding:4px 10px;width:100%}
+  body.signing .bar .hanko-btn{margin:4px 0 0}
+  .signer{bottom:0;right:calc(var(--sbar-w) + env(safe-area-inset-right));flex-direction:row;justify-content:center;align-items:center;gap:10px;
+    padding:6px 8px 6px calc(env(safe-area-inset-left) + 8px)}
+  .signer-top{width:auto;height:var(--sh);flex-direction:column;justify-content:space-between;align-items:center;margin:0}
+  .signer-lbl{writing-mode:vertical-rl;font-size:17px}
+  .signer-lbl small{margin:.6em 0 0;font-size:12px}
+  #viewBtn{writing-mode:vertical-rl;min-height:0;min-width:44px;padding:10px 4px;letter-spacing:.1em}
+}
+:root{--sbar-w:104px}
+/* phone landscape: result panel sits beside the shrunken contract, keep the new name inside it */
+@media (orientation:landscape) and (max-height:520px){
+  .sheet.side .newname{gap:4px;padding-right:22px}
+  .sheet.side .newname figure{gap:2px}
+  .sheet.side .newname svg{width:48px;height:48px}
+  .sheet.side .newname[data-n="4"] svg,.sheet.side .newname[data-n="5"] svg{width:36px;height:36px}
+  .sheet.side .zy{font-size:12px}
+  .sheet.side .btn{min-width:0;flex:1 1 0;padding:6px 10px;font-size:15px;min-height:44px}
+  .sheet.side .result-btns{gap:8px}
+}
+
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
 </head>
@@ -155,7 +203,8 @@ body.done .credits{opacity:0}
       <div class="c-party-b">
         <div class="c-lbl"></div>
         <div class="pad-wrap" id="padWrap">
-          <canvas id="pad" aria-label="乙方簽名欄（由上而下直書姓名）"></canvas>
+          <canvas id="pad" aria-label="乙方簽名欄（點一下放大簽名）"></canvas>
+          <button class="pad-tap" id="padTap" type="button">點此簽名</button>
           <svg id="fx" class="fx" aria-hidden="true"></svg>
         </div>
       </div>
@@ -163,6 +212,18 @@ body.done .credits{opacity:0}
     </div>
   </article>
 </main>
+
+<!-- focused signing: the 乙方 field, enlarged to (nearly) the whole screen; strokes still land in the contract's pad units -->
+<section class="signer hidden" id="signer" aria-label="乙方簽名欄（放大）">
+  <div class="signer-top" id="signerTop">
+    <span class="signer-lbl">乙方簽名<small>由上而下直書姓名</small></span>
+    <button class="btn ghost" id="viewBtn" type="button">看契約全文</button>
+  </div>
+  <div class="signer-box" id="signerBox">
+    <canvas id="bigPad" aria-label="乙方簽名欄（由上而下直書姓名）"></canvas>
+    <div class="signer-hint" aria-hidden="true">請在此由上而下直書姓名</div>
+  </div>
+</section>
 
 <div class="bar" id="bar">
   <button class="btn" id="undoBtn" type="button">復原一筆</button>
@@ -1656,20 +1717,95 @@ function redraw() {
   wrap.classList.toggle('inked', strokes.length > 0 || !!current);
   $('#count').textContent = `${strokes.length} 筆`;
   $('#signBtn').disabled = locked || strokes.length < 2;
+  redrawBig();
 }
+// ---------- focused signing (the 乙方 field enlarged to nearly the whole screen) ----------
+// The big box is only a view: its frame (200 units wide, like the pad) is fitted into the contract pad's 200×PU_H box
+// (uniform scale ≤ 1, centred), so strokes are always stored in contract pad units -> same matcher input as before / as 3D.
+const signer = $('#signer'), sbox = $('#signerBox'), big = $('#bigPad'), bctx = big.getContext('2d');
+let BW = 0, BH = 0, signerOpen = false;
+const LAND = matchMedia('(orientation: landscape) and (max-height: 520px)');
+function bigFrame() {
+  const hO = PAD_UNITS * BH / (BW || 1), puH = PU_H();
+  const s = Math.min(1, puH / (hO || 1));
+  return { s, ox: (PAD_UNITS - PAD_UNITS * s) / 2, oy: (puH - hO * s) / 2 };
+}
+function sizeSigner() {
+  const vw = window.innerWidth, vh = window.visualViewport ? visualViewport.height : window.innerHeight;
+  if (LAND.matches) {
+    // phone in landscape: label column on the left, controls on the right (CSS), the box takes the full height
+    const cs = getComputedStyle(signer), side = $('#signerTop').offsetWidth || 48;
+    const availH = Math.max(140, vh - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0));
+    const availW = signer.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0) - side - 10;
+    BW = Math.round(Math.min(availW, availH / 1.5)); BH = Math.round(availH);
+  } else {
+    const top = $('#signerTop').offsetHeight || 48;
+    const bar = $('#bar').offsetHeight || 92;
+    const availW = vw - 24, availH = Math.max(160, vh - bar - top - 16 - (parseFloat(getComputedStyle(signer).paddingTop) || 0));
+    // as wide as the screen allows, but no wider than tall/1.7 (a name is written top to bottom)
+    BW = Math.round(Math.min(availW, availH / 1.7, 560)); BH = Math.round(availH);
+  }
+  signer.style.setProperty('--sw', `${BW}px`); signer.style.setProperty('--sh', `${BH}px`);
+  big.width = Math.round(BW * DPR); big.height = Math.round(BH * DPR);
+}
+function redrawBig() {
+  if (!signerOpen) return;
+  const { s, ox, oy } = bigFrame(), k = DPR * BW / PAD_UNITS / s;
+  bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, big.width, big.height);
+  bctx.setTransform(k, 0, 0, k, -ox * k, -oy * k);
+  bctx.lineCap = 'round'; bctx.lineJoin = 'round'; bctx.strokeStyle = '#1d1a17'; bctx.lineWidth = BRUSH;
+  for (const st of strokes.concat(current ? [current] : [])) {
+    bctx.beginPath();
+    st.forEach((p, i) => (i ? bctx.lineTo(p.x, p.y) : bctx.moveTo(p.x, p.y)));
+    if (st.length === 1) bctx.lineTo(st[0].x + 0.1, st[0].y);
+    bctx.stroke();
+  }
+  sbox.classList.toggle('inked', strokes.length > 0 || !!current);
+}
+// "camera" move between the contract's signing column and the big box (FLIP on the box)
+function flip(open) {
+  const pr = wrap.getBoundingClientRect(), br = sbox.getBoundingClientRect();
+  const t = `translate(${pr.left - br.left}px,${pr.top - br.top}px) scale(${pr.width / br.width},${pr.height / br.height})`;
+  const o = { duration: 480, easing: 'cubic-bezier(.3,.8,.25,1)', fill: 'both' };
+  signer.animate([{ backgroundColor: 'rgba(17,14,12,0)' }, { backgroundColor: 'rgba(17,14,12,.88)' }], { ...o, direction: open ? 'normal' : 'reverse' });
+  $('#signerTop').animate([{ opacity: 0 }, { opacity: 1 }], { ...o, direction: open ? 'normal' : 'reverse' });
+  return sbox.animate([{ transformOrigin: '0 0', transform: t }, { transformOrigin: '0 0', transform: 'none' }], { ...o, direction: open ? 'normal' : 'reverse' }).finished;
+}
+async function openSigner() {
+  if (signerOpen || locked) return;
+  signerOpen = true; window.__signer = 'opening';
+  signer.classList.remove('hidden'); document.body.classList.add('signing');
+  sbox.style.backgroundImage = card.style.backgroundImage;
+  sizeSigner(); redrawBig();
+  await flip(true);
+  if (signerOpen) window.__signer = 'open';
+}
+async function closeSigner() {
+  if (!signerOpen) return;
+  window.__signer = 'closing';
+  if (current) end();
+  await flip(false);
+  signerOpen = false; signer.classList.add('hidden'); document.body.classList.remove('signing');
+  window.__signer = 'closed';
+}
+$('#viewBtn').onclick = () => closeSigner();
+$('#padTap').onclick = () => openSigner();
+pad.addEventListener('pointerdown', e => { if (!locked) { e.preventDefault(); openSigner(); } });
+
 function pos(e) {
-  const r = pad.getBoundingClientRect(), k = r.width / W;
-  return { x: (e.clientX - r.left) / k * U(), y: (e.clientY - r.top) / k * U() };
+  const r = big.getBoundingClientRect(), k = r.width / BW;   // k ≠ 1 only mid-animation
+  const { s, ox, oy } = bigFrame(), u = PAD_UNITS / BW;
+  return { x: (e.clientX - r.left) / k * u * s + ox, y: (e.clientY - r.top) / k * u * s + oy };
 }
 let pid = null;
-pad.addEventListener('pointerdown', e => {
+big.addEventListener('pointerdown', e => {
   if (locked || (current && e.pointerType === 'touch')) return;   // ignore a second finger
   e.preventDefault();
-  pad.setPointerCapture(e.pointerId);
+  big.setPointerCapture(e.pointerId);
   current = [pos(e)]; pid = e.pointerId;
   redraw();
 });
-pad.addEventListener('pointermove', e => {
+big.addEventListener('pointermove', e => {
   if (!current || e.pointerId !== pid) return;
   e.preventDefault();
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
@@ -1677,16 +1813,18 @@ pad.addEventListener('pointermove', e => {
   redraw();
 });
 const end = e => { if (!current || (e && e.pointerId !== pid)) return; strokes.push(current); current = null; pid = null; redraw(); prefetch(strokes); };
-pad.addEventListener('pointerup', end);
-pad.addEventListener('pointercancel', end);
+big.addEventListener('pointerup', end);
+big.addEventListener('pointercancel', end);
 // no page scroll / zoom / callout while writing (iOS Safari)
-for (const t of ['touchstart', 'touchmove']) pad.addEventListener(t, e => e.preventDefault(), { passive: false });
+for (const c of [pad, big]) {
+  for (const t of ['touchstart', 'touchmove']) c.addEventListener(t, e => e.preventDefault(), { passive: false });
+  c.addEventListener('contextmenu', e => e.preventDefault());
+}
 document.addEventListener('gesturestart', e => e.preventDefault());
-pad.addEventListener('contextmenu', e => e.preventDefault());
 $('#undoBtn').onclick = () => { if (!locked) { strokes.pop(); redraw(); } };
 $('#clearBtn').onclick = () => { if (!locked) { strokes = []; redraw(); } };
 let rT = 0;
-const onResize = () => { clearTimeout(rT); rT = setTimeout(() => { if (!locked) resize(); else if (lastResult && !$('#result').classList.contains('hidden')) placeResult(); }, 60); };
+const onResize = () => { clearTimeout(rT); rT = setTimeout(() => { if (!locked) { resize(); if (signerOpen) { sizeSigner(); redrawBig(); } } else if (lastResult && !$('#result').classList.contains('hidden')) placeResult(); }, 60); };
 window.addEventListener('resize', onResize);
 window.addEventListener('orientationchange', onResize);
 if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
@@ -1718,7 +1856,9 @@ function brushGlyph(parent, ch, tr) {
 // ---------- the ceremony ----------
 async function sign() {
   if (locked || strokes.length < 2) return;
-  locked = true; redraw();
+  locked = true;
+  await closeSigner();   // zoom back out to the whole contract first, then the ceremony
+  redraw();
   document.body.classList.add('locked');
   const px = strokes.map(s => s.map(p => ({ x: p.x, y: p.y })));
   const [res] = await Promise.all([runMatch(px), charsReady, sleep(700)]);
@@ -1781,16 +1921,20 @@ function placeResult() {
   const sh = $('#result'), vw = innerWidth, vh = innerHeight;
   card.style.transform = '';
   const cw = card.offsetWidth, ch = card.offsetHeight, top = card.getBoundingClientRect().top;
-  const sideW = Math.min(300, vw - cw - 48);
-  const side = sideW >= 250 && vh >= 300;
+  let sideW = Math.min(300, vw - cw - 48), k = 1;
+  if (sideW < 250 && vw > vh && vh <= 520) {   // phone in landscape: shrink the contract a little so the result fits beside it
+    sideW = Math.round(Math.min(300, Math.max(240, vw * 0.36)));
+    k = Math.min(1, (vw - sideW - 60) / cw);
+  }
+  const side = sideW >= 240 && vh >= 300;
   sh.classList.toggle('side', side);
   sh.classList.toggle('tall', side && vh >= 600);
   if (side) {
     sh.style.setProperty('--side-w', `${sideW}px`);
     const shift = (sideW + 24) / 2;
-    card.style.transform = `translateX(${-shift}px)`;
-    sh.style.left = `${vw / 2 - shift + cw / 2 + 24}px`;
-    sh.style.top = `${top + ch / 2}px`;
+    card.style.transform = k < 1 ? `translateX(${-shift}px) scale(${k})` : `translateX(${-shift}px)`;
+    sh.style.left = `${vw / 2 - shift + cw * k / 2 + 24}px`;
+    sh.style.top = `${top + ch * k / 2}px`;
   } else {
     sh.style.left = sh.style.top = '';
     const sheetTop = vh - (parseFloat(getComputedStyle(sh).bottom) || 0) - sh.offsetHeight;
@@ -1816,6 +1960,7 @@ $('#againBtn').onclick = () => {
   card.style.transform = '';
   document.body.classList.remove('locked', 'done');
   resize();
+  setTimeout(openSigner, 350);
 };
 $('#shareBtn').onclick = () => shareResult(lastResult);
 
@@ -1828,11 +1973,15 @@ window.__game = {
   size: () => ({ W, H }),
   strokeCount: () => strokes.length,
   prefetch: () => prefetch(strokes, 0),   // what a finished stroke triggers
+  openSigner, closeSigner,
+  bigPadRect: () => { const r = big.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; },
+  // big-box CSS px -> pad units (what a touch at that point records)
+  bigToPad: (px, py) => pos({ clientX: big.getBoundingClientRect().left + px, clientY: big.getBoundingClientRect().top + py }),
   sign,
 };
 
 resize();
-kaiReady.then(() => { if (!locked) resize(); });
+kaiReady.then(() => { if (!locked) resize(); setTimeout(openSigner, 700); });   // show the contract, then zoom into the 乙方 field
 
 return {  };
 })();
