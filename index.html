@@ -5160,12 +5160,7 @@ const zhMD = n => (n < 10 ? '' : n < 20 ? '十' : '一二三'[Math.floor(n / 10)
 const dateZh = `中華民國${zhNum(today.getFullYear() - 1911)}年${zhMD(today.getMonth() + 1)}月${zhMD(today.getDate())}日`;
 // contract wording (original)
 const C_TITLE = ['契約書'];   // the paper is just headed 契約書; everything but the signature is kept quiet
-const C_BODY = [
-  // the wording is drawn as faint faux cursive; who the other party is no longer matters, so nobody is named
-  { text: '立約人自願入湯屋作女中，議定條款如左，各自信守，不得反悔' },
-  { head: '壹、工作項目', text: '聽從差遣，司燒湯刷池奉茶送膳' },
-  { head: '貳、工作地點', text: '於溪畔湯屋服勞，不得擅離' },
-];
+const C_BODY = [];   // no clauses or parties: the paper is just the title and a framed signing field
 
 // ---------- paper, vertical text, seal (canvas) ----------
 function washi(c, w, h, seed = 12345, k = 1) {
@@ -5282,7 +5277,7 @@ function vscrib(c, text, x, y0, y1, size, pitch, colGap, indent = 0, seed = 1, i
   return x;
 }
 // ---------- the line before strokes are taken (the owner chose this wording), tap to skip ----------
-const verdictText = n => ['真是個奢侈的名字啊。', `多了 ${n} 筆，收走了。`];
+const verdictText = () => ['真是個奢侈的名字啊。', ''];
 function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
   let el = document.getElementById('verdict');
   if (!el) {
@@ -5292,7 +5287,7 @@ function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
     document.body.appendChild(el);
   }
   const [a, b] = verdictText(n);
-  el.querySelector('.v1').textContent = a; el.querySelector('.v2').textContent = b;
+  el.querySelector('.v1').textContent = a; el.querySelector('.v2').textContent = b; el.querySelector('.v2').style.display = b ? '' : 'none';
   el.style.display = 'flex'; el.style.transition = `opacity ${inMs}ms ease`;
   window.__verdict = a + b;
   return new Promise(res => {
@@ -5306,6 +5301,28 @@ function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
     requestAnimationFrame(() => requestAnimationFrame(() => (el.style.opacity = '1')));
     t1 = setTimeout(finish, inMs + hold);
   });
+}
+// ---------- the signing field's frame: a firm outer rule and a fine inner one, brushed slightly uneven ----------
+function inkFrame(c, x, y, w, h, k = 1) {
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+  let r = 9173; const rnd = () => ((r = (r * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const side = (x0, y0, x1, y1, lw, a) => {   // one side as a few overlapping passes with a gentle wobble
+    for (let pass = 0; pass < 2; pass++) {
+      c.strokeStyle = `rgba(52,36,22,${a * (pass ? 0.55 : 1)})`; c.lineWidth = lw * (pass ? 0.6 : 1);
+      c.beginPath(); c.moveTo(x0, y0);
+      const n = 6;
+      for (let i = 1; i <= n; i++) {
+        const t = i / n, j = (rnd() - 0.5) * 1.6 * k;
+        c.lineTo(x0 + (x1 - x0) * t + (y0 === y1 ? 0 : j), y0 + (y1 - y0) * t + (x0 === x1 ? 0 : j));
+      }
+      c.stroke();
+    }
+  };
+  const box = (x, y, w, h, lw, a) => { side(x, y, x + w, y, lw, a); side(x + w, y, x + w, y + h, lw, a); side(x + w, y + h, x, y + h, lw, a); side(x, y + h, x, y, lw, a); };
+  const o = 7 * k;
+  box(x - o, y - o, w + 2 * o, h + 2 * o, 4 * k, 0.78);   // outer: just outside the field
+  box(x, y, w, h, 1.4 * k, 0.4);                         // inner: exactly on the field's edge
+  c.restore();
 }
 function drawSeal(c, x, y, r, alpha = 1) {
   c.save(); c.translate(x, y); c.rotate(-0.13); c.globalAlpha = alpha;
@@ -5453,7 +5470,6 @@ async function renderShareImage(res) {
   const red = '#b8321f', ink = '#211d19';
   c.fillStyle = ink;
   vcol(c, C_TITLE.join('　'), 975, 110, 56, 64);
-  c.fillStyle = '#5b5045'; vcol(c, dateZh, 880, 120, 28, 33);
   // new name, vertical, with vertical 注音 to the right of each character
   const n = res.chars.length, size = n === 1 ? 460 : 390, gap = 40;
   const total = n * size + (n - 1) * gap, x0 = (w - size) / 2 - 30;
@@ -5505,12 +5521,12 @@ async function shareResult(lastResult) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
+return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, inkFrame, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
 })();
 const __m_3d_app3d_js = (function () {
 // 契約書 3D — one sheet of washi paper (original code). Uses global THREE (vendor/three.min.js, bundled locally).
 const {
-  initCore, sleep, clamp, KAI, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, vscrib, verdict, drawSeal,
+  initCore, sleep, clamp, KAI, C_TITLE, washi, vcol, verdict, inkFrame, drawSeal,
   runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, medLen, nameFigures, shareResult,
 } = __m_shared_core_js;
 const T = window.THREE;
@@ -5607,22 +5623,14 @@ const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (
 $('#soundBtn').onclick = () => { soundOn = !soundOn; $('#soundBtn').setAttribute('aria-label', `音效：${soundOn ? '開' : '關'}`); $('#soundBtn').setAttribute('aria-pressed', soundOn); };
 
 // ---------- textures ----------
-// washi(), vcol(), vtext() come from shared/core.js
-const SEAL = { x: 480, y: 815, r: 72 };
+// washi(), vcol(), inkFrame() come from shared/core.js
+const SEAL = { x: 450, y: 830, r: 72 };   // just right of the field's lower corner
 function drawPaperBase(c) {
   washi(c, CW, CH);
-  // everything except the signature is kept quiet: small faded title, faint faux-cursive clauses (no heads),
-  // faded date and party labels — the eye goes to the signing space and, later, to what is left of the name
-  c.fillStyle = 'rgba(33,29,25,.58)';
-  vcol(c, C_TITLE.join(''), 1272, 110, 60, 70);
-  const top = 125, bottom = 885, fs = 32, pitch = 40, gap = 46;
-  let x = 1150;
-  for (const b of C_BODY) { x = vscrib(c, b.text, x, top, bottom, fs, pitch, gap, b.head ? 1 : 0, 1, 'rgba(70,56,40,.34)'); x -= 14; }
-  // no party labels: just the date between the clauses and the signing space
-  c.fillStyle = 'rgba(60,50,40,.42)'; vcol(c, dateZh, 520, 130, 24, 29);
-  // the blank signing space: only two faint column rules
-  c.strokeStyle = 'rgba(120,90,50,.16)'; c.lineWidth = 1.5;
-  c.beginPath(); c.moveTo(PAD.x, PAD.y); c.lineTo(PAD.x, PAD.y + PAD.h); c.moveTo(PAD.x + PAD.w, PAD.y); c.lineTo(PAD.x + PAD.w, PAD.y + PAD.h); c.stroke();
+  // only the title and the signing field: a clear 契約書 at the right edge, the field framed in ink at the left
+  c.fillStyle = '#211d19';
+  vcol(c, C_TITLE.join(''), 1262, 120, 84, 96);
+  inkFrame(c, PAD.x, PAD.y, PAD.w, PAD.h, 1);
 }
 // drawSeal() comes from shared/core.js
 

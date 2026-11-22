@@ -208,6 +208,15 @@ body.done .bar{visibility:hidden}
 /* r12: no party labels; the date column sits alone, the signing field gets the freed height */
 .c-party-a{opacity:1}
 .c-party-b{padding-top:.8em}
+/* r13: only the title and a clearly framed signing field */
+.card-in{justify-content:space-between}
+.c-title{font-size:1.75em;opacity:1;letter-spacing:.12em}
+.c-party-b{flex:none !important;width:min(46cqw, 40cqh);min-width:0;padding-top:0}
+.pad-wrap{border-color:transparent;margin:7px;width:calc(100% - 14px)}
+.pad-wrap::before,.big-frame::before{content:"";position:absolute;inset:-7px;border:2.5px solid rgba(52,36,22,.78);border-radius:2px;pointer-events:none}
+.pad-wrap::after,.big-frame::after{content:"";position:absolute;inset:0;border:1px solid rgba(52,36,22,.4);pointer-events:none}
+.signer-box::before,.signer-box::after{display:none}
+.big-frame{position:absolute;pointer-events:none}
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
@@ -217,8 +226,6 @@ body.done .bar{visibility:hidden}
   <article class="card" id="card" aria-label="契約書">
     <div class="card-in">
       <h1 class="c-title"></h1>
-      <div class="c-body"></div>
-      <div class="c-party-a"><time class="c-date" id="date"></time></div>
       <div class="c-party-b">
         <div class="pad-wrap" id="padWrap">
           <canvas id="pad" aria-label="簽名欄（點一下放大簽名）"></canvas>
@@ -237,6 +244,7 @@ body.done .bar{visibility:hidden}
     <button class="btn ghost" id="viewBtn" type="button">看契約全文</button>
   </div>
   <div class="signer-box" id="signerBox">
+    <div class="big-frame" id="bigFrame" aria-hidden="true"></div>
     <canvas id="bigPad" aria-label="簽名欄"></canvas>
   </div>
 </section>
@@ -1438,12 +1446,7 @@ const zhMD = n => (n < 10 ? '' : n < 20 ? '十' : '一二三'[Math.floor(n / 10)
 const dateZh = `中華民國${zhNum(today.getFullYear() - 1911)}年${zhMD(today.getMonth() + 1)}月${zhMD(today.getDate())}日`;
 // contract wording (original)
 const C_TITLE = ['契約書'];   // the paper is just headed 契約書; everything but the signature is kept quiet
-const C_BODY = [
-  // the wording is drawn as faint faux cursive; who the other party is no longer matters, so nobody is named
-  { text: '立約人自願入湯屋作女中，議定條款如左，各自信守，不得反悔' },
-  { head: '壹、工作項目', text: '聽從差遣，司燒湯刷池奉茶送膳' },
-  { head: '貳、工作地點', text: '於溪畔湯屋服勞，不得擅離' },
-];
+const C_BODY = [];   // no clauses or parties: the paper is just the title and a framed signing field
 
 // ---------- paper, vertical text, seal (canvas) ----------
 function washi(c, w, h, seed = 12345, k = 1) {
@@ -1560,7 +1563,7 @@ function vscrib(c, text, x, y0, y1, size, pitch, colGap, indent = 0, seed = 1, i
   return x;
 }
 // ---------- the line before strokes are taken (the owner chose this wording), tap to skip ----------
-const verdictText = n => ['真是個奢侈的名字啊。', `多了 ${n} 筆，收走了。`];
+const verdictText = () => ['真是個奢侈的名字啊。', ''];
 function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
   let el = document.getElementById('verdict');
   if (!el) {
@@ -1570,7 +1573,7 @@ function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
     document.body.appendChild(el);
   }
   const [a, b] = verdictText(n);
-  el.querySelector('.v1').textContent = a; el.querySelector('.v2').textContent = b;
+  el.querySelector('.v1').textContent = a; el.querySelector('.v2').textContent = b; el.querySelector('.v2').style.display = b ? '' : 'none';
   el.style.display = 'flex'; el.style.transition = `opacity ${inMs}ms ease`;
   window.__verdict = a + b;
   return new Promise(res => {
@@ -1584,6 +1587,28 @@ function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
     requestAnimationFrame(() => requestAnimationFrame(() => (el.style.opacity = '1')));
     t1 = setTimeout(finish, inMs + hold);
   });
+}
+// ---------- the signing field's frame: a firm outer rule and a fine inner one, brushed slightly uneven ----------
+function inkFrame(c, x, y, w, h, k = 1) {
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+  let r = 9173; const rnd = () => ((r = (r * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const side = (x0, y0, x1, y1, lw, a) => {   // one side as a few overlapping passes with a gentle wobble
+    for (let pass = 0; pass < 2; pass++) {
+      c.strokeStyle = `rgba(52,36,22,${a * (pass ? 0.55 : 1)})`; c.lineWidth = lw * (pass ? 0.6 : 1);
+      c.beginPath(); c.moveTo(x0, y0);
+      const n = 6;
+      for (let i = 1; i <= n; i++) {
+        const t = i / n, j = (rnd() - 0.5) * 1.6 * k;
+        c.lineTo(x0 + (x1 - x0) * t + (y0 === y1 ? 0 : j), y0 + (y1 - y0) * t + (x0 === x1 ? 0 : j));
+      }
+      c.stroke();
+    }
+  };
+  const box = (x, y, w, h, lw, a) => { side(x, y, x + w, y, lw, a); side(x + w, y, x + w, y + h, lw, a); side(x + w, y + h, x, y + h, lw, a); side(x, y + h, x, y, lw, a); };
+  const o = 7 * k;
+  box(x - o, y - o, w + 2 * o, h + 2 * o, 4 * k, 0.78);   // outer: just outside the field
+  box(x, y, w, h, 1.4 * k, 0.4);                         // inner: exactly on the field's edge
+  c.restore();
 }
 function drawSeal(c, x, y, r, alpha = 1) {
   c.save(); c.translate(x, y); c.rotate(-0.13); c.globalAlpha = alpha;
@@ -1731,7 +1756,6 @@ async function renderShareImage(res) {
   const red = '#b8321f', ink = '#211d19';
   c.fillStyle = ink;
   vcol(c, C_TITLE.join('　'), 975, 110, 56, 64);
-  c.fillStyle = '#5b5045'; vcol(c, dateZh, 880, 120, 28, 33);
   // new name, vertical, with vertical 注音 to the right of each character
   const n = res.chars.length, size = n === 1 ? 460 : 390, gap = 40;
   const total = n * size + (n - 1) * gap, x0 = (w - size) / 2 - 30;
@@ -1783,14 +1807,14 @@ async function shareResult(lastResult) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
+return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, inkFrame, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
 })();
 const __m_app_js = (function () {
 // 契約書 2D — vertical contract, mobile-first (original code).
 // Presentation only: wording, date, font, matching, name layout, 注音, seal and share image come from shared/core.js (same as 3D).
 const {
-  initCore, getCharData, sleep, PAD_UNITS, dateZh, today, C_TITLE, C_BODY,
-  washi, drawSeal, scribCol, verdict, runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, nameFigures, shareResult,
+  initCore, getCharData, sleep, PAD_UNITS, C_TITLE,
+  washi, drawSeal, verdict, runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, nameFigures, shareResult,
 } = __m_shared_core_js;
 const $ = s => document.querySelector(s);
 const pad = $('#pad'), fx = $('#fx'), wrap = $('#padWrap'), card = $('#card');
@@ -1810,48 +1834,9 @@ const BRUSH = 8.2;                              // brush width in pad units
 let lastResult = null;
 
 // ---------- the contract text (shared wording) ----------
-// Clause wording stays in the DOM (for layout and screen readers) but is transparent; each laid-out column
-// of it is painted over as faux cursive (shared scribCol), so heads, title and parties stay legible.
-const scribCv = document.createElement('canvas'); scribCv.className = 'scrib'; scribCv.setAttribute('aria-hidden', 'true');
-function paintScrib() {
-  const body = $('.c-body'); if (!body || !body.offsetWidth) return;
-  const br = body.getBoundingClientRect(), k = br.width / body.offsetWidth || 1;   // undo any CSS scale
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = body.offsetWidth, h = body.offsetHeight;
-  scribCv.width = Math.round(w * dpr); scribCv.height = Math.round(h * dpr);
-  scribCv.style.width = w + 'px'; scribCv.style.height = h + 'px';
-  const c = scribCv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
-  let n = 0;
-  for (const p of body.querySelectorAll('p')) {
-    const node = [...p.childNodes].find(x => x.nodeType === 3); if (!node) continue;
-    const fs = parseFloat(getComputedStyle(p).fontSize), chars = [...node.textContent];
-    const pitch = fs + (parseFloat(getComputedStyle(p).letterSpacing) || 0);
-    const rg = document.createRange(); rg.selectNodeContents(node);
-    const rects = [...rg.getClientRects()].filter(rc => rc.width >= 1 && rc.height >= 1);
-    let i = 0;
-    rects.forEach((rc, ri) => {   // one rect per laid-out column
-      const hh = rc.height / k, cnt = ri === rects.length - 1 ? chars.length - i : Math.max(1, Math.round(hh / pitch));
-      if (cnt <= 0) return;
-      scribCol(c, chars.slice(i, i + cnt).join(''), (rc.left + rc.width / 2 - br.left) / k, (rc.top - br.top) / k, fs * 0.92, hh / cnt, ++n, 'rgba(70,56,40,.34)');
-      i += cnt;
-    });
-  }
-}
 {
   const t = $('.c-title'); t.innerHTML = '';
   C_TITLE.forEach(x => { const s = document.createElement('span'); s.textContent = x; t.appendChild(s); });
-  const b = $('.c-body'); b.innerHTML = '';
-  for (const c of C_BODY) {
-    const p = document.createElement('p');
-    if (c.head) p.className = 'cl';   // clause heads dropped: only the signature should draw the eye
-    p.appendChild(document.createTextNode(c.text));
-    b.appendChild(p);
-  }
-  b.appendChild(scribCv);
-  $('#date').textContent = dateZh;
-  $('#date').setAttribute('datetime', today.toISOString().slice(0, 10));
-  new ResizeObserver(() => paintScrib()).observe(b);
-  kaiReady.then(paintScrib); document.fonts && document.fonts.ready.then(paintScrib);
 }
 
 // ---------- paper ----------
@@ -1874,12 +1859,12 @@ async function stampSeal() {
   const cv = document.createElement('canvas'); cv.width = cv.height = 240;
   drawSeal(cv.getContext('2d'), 120, 120, 104);
   img.src = cv.toDataURL('image/png');
-  // on the date column, low on the card, overlapping the column edges
+  // just right of the framed field's lower corner (as on the 3D paper)
   const cr = card.getBoundingClientRect(), k = cr.width / card.offsetWidth;
-  const ar = $('.c-party-a').getBoundingClientRect();
+  const ar = wrap.getBoundingClientRect();
   const sz = img.offsetWidth;
-  img.style.left = `${(ar.left - cr.left + ar.width / 2) / k - sz * 0.5}px`;
-  img.style.top = `${card.offsetHeight * 0.72 - sz * 0.5}px`;
+  img.style.left = `${(ar.right - cr.left) / k + sz * 0.12}px`;
+  img.style.top = `${(ar.bottom - cr.top) / k - sz * 1.05}px`;
   img.classList.remove('on'); void img.offsetWidth; img.classList.add('on');
   try { navigator.vibrate && navigator.vibrate(18); } catch (e) {}
   await sleep(450);
@@ -1918,10 +1903,15 @@ function redraw() {
 const signer = $('#signer'), sbox = $('#signerBox'), big = $('#bigPad'), bctx = big.getContext('2d');
 let BW = 0, BH = 0, signerOpen = false;
 const LAND = matchMedia('(orientation: landscape) and (max-height: 520px)');
+// The whole pad is shown, fitted and centred in the big box, so its ink frame (the exact pad edge) is always in view.
 function bigFrame() {
-  const hO = PAD_UNITS * BH / (BW || 1), puH = PU_H();
-  const s = Math.min(1, puH / (hO || 1));
-  return { s, ox: (PAD_UNITS - PAD_UNITS * s) / 2, oy: (puH - hO * s) / 2 };
+  const puH = PU_H(), kc = Math.min(BW * 0.94 / PAD_UNITS, BH * 0.96 / (puH || 1)) || 1;   // CSS px per pad unit
+  const fx0 = (BW - PAD_UNITS * kc) / 2, fy0 = (BH - puH * kc) / 2;
+  return { s: BW / (PAD_UNITS * kc), ox: -fx0 / kc, oy: -fy0 / kc, kc, fx0, fy0, fw: PAD_UNITS * kc, fh: puH * kc };
+}
+function placeBigFrame() {
+  const f = bigFrame(), el = $('#bigFrame');
+  Object.assign(el.style, { left: `${f.fx0}px`, top: `${f.fy0}px`, width: `${f.fw}px`, height: `${f.fh}px` });
 }
 function sizeSigner() {
   const vw = window.innerWidth, vh = window.visualViewport ? visualViewport.height : window.innerHeight;
@@ -1940,6 +1930,7 @@ function sizeSigner() {
   }
   signer.style.setProperty('--sw', `${BW}px`); signer.style.setProperty('--sh', `${BH}px`);
   big.width = Math.round(BW * DPR); big.height = Math.round(BH * DPR);
+  placeBigFrame();
 }
 // incremental: while a stroke is being written only its new segment is drawn (both canvases keep the transform set by redraw)
 function drawTail(st, from) {
@@ -1973,8 +1964,10 @@ function redrawBig() {
 }
 // "camera" move between the contract's signing column and the big box (FLIP on the box)
 function flip(open) {
-  const pr = wrap.getBoundingClientRect(), br = sbox.getBoundingClientRect();
-  const t = `translate(${pr.left - br.left}px,${pr.top - br.top}px) scale(${pr.width / br.width},${pr.height / br.height})`;
+  // the framed pad inside the big box lands exactly on the contract's framed field
+  const pr = wrap.getBoundingClientRect(), br = sbox.getBoundingClientRect(), f = bigFrame();
+  const sx = pr.width / f.fw, sy = pr.height / f.fh;
+  const t = `translate(${pr.left - br.left - f.fx0 * sx}px,${pr.top - br.top - f.fy0 * sy}px) scale(${sx},${sy})`;
   const o = { duration: 480, easing: 'cubic-bezier(.3,.8,.25,1)', fill: 'both' };
   signer.animate([{ backgroundColor: 'rgba(17,14,12,0)' }, { backgroundColor: 'rgba(17,14,12,.88)' }], { ...o, direction: open ? 'normal' : 'reverse' });
   $('#signerTop').animate([{ opacity: 0 }, { opacity: 1 }], { ...o, direction: open ? 'normal' : 'reverse' });
