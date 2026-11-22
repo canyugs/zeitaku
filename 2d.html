@@ -187,6 +187,11 @@ body.done .bar{visibility:hidden}
 @keyframes cflash{0%,60%{color:#f3b08a}100%{color:#cdbfa6}}
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 56px);transform:translateX(-50%);z-index:60;max-width:min(88vw,420px);padding:10px 16px;border-radius:12px;background:#efe6d2;color:#211d19;font-size:15px;line-height:1.5;box-shadow:0 10px 30px #000a;text-align:center}
 .toast.hidden{display:none}
+/* clause wording: kept in the DOM for layout/screen readers, shown as faux cursive painted on .scrib */
+.c-body{position:relative}
+.c-body p{color:transparent}
+.c-body p b{color:var(--ink)}
+.c-body .scrib{position:absolute;left:0;top:0;pointer-events:none}
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
@@ -1470,6 +1475,101 @@ function vtext(c, text, x, y0, y1, size, pitch, colGap, indent = 0) {
   for (const col of cols) { vcol(c, col, x, y0 + indent * pitch, size, pitch); x -= colGap; }
   return x;
 }
+// ---------- fine print as faux cursive (original, procedural) ----------
+// The clause wording is not meant to be read: each column of text becomes one running brush line that
+// loops and wanders like hasty cursive, one "beat" per character, with the pen lifted at punctuation
+// (left as a small dot where the mark would sit). Deterministic per text, so 2D/3D/redraws look the same.
+const hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.codePointAt(0), 16777619); return h >>> 0; };
+function scribCol(c, text, x, y, size, pitch = size * 1.12, seed = 1, ink = '#211d19') {
+  const chars = [...text];
+  let r = (hash(text) ^ Math.imul(seed, 2654435761)) >>> 0 || 1;
+  const rnd = () => ((r = Math.imul(r, 1103515245) + 12345 >>> 0) / 4294967296);
+  c.save(); c.strokeStyle = ink; c.fillStyle = ink; c.lineCap = 'round'; c.lineJoin = 'round';
+  const wMax = Math.max(1.2, size * 0.11);
+  let ctl = [];   // control points of the current pen-down run: {x, y, p}
+  const flush = () => {
+    if (ctl.length < 2) { ctl = []; return; }
+    // Catmull-Rom through the control points; brush width follows interpolated pressure, tapered at both ends
+    const P = [ctl[0], ...ctl, ctl[ctl.length - 1]], pts = [];
+    for (let i = 1; i < P.length - 2; i++) {
+      const p0 = P[i - 1], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2];
+      for (let k = 0; k < 8; k++) {
+        const t = k / 8, t2 = t * t, t3 = t2 * t;
+        const f = (a0, a1, a2, a3) => 0.5 * (2 * a1 + (-a0 + a2) * t + (2 * a0 - 5 * a1 + 4 * a2 - a3) * t2 + (-a0 + 3 * a1 - 3 * a2 + a3) * t3);
+        pts.push({ x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y), p: p1.p + (p2.p - p1.p) * t });
+      }
+    }
+    pts.push(ctl[ctl.length - 1]);
+    const n = pts.length;
+    for (let i = 1; i < n; i++) {
+      const A = pts[i - 1], B = pts[i], end = Math.min(1, Math.min(i, n - i) / 7);
+      c.globalAlpha = 0.72 + 0.22 * B.p;
+      c.lineWidth = wMax * (0.18 + 0.82 * B.p) * (0.3 + 0.7 * end);
+      c.beginPath(); c.moveTo(A.x, A.y); c.lineTo(B.x, B.y); c.stroke();
+    }
+    ctl = [];
+  };
+  let side = rnd() < 0.5 ? -1 : 1, runLen = 0;
+  chars.forEach((ch, i) => {
+    const y0 = y + i * pitch;
+    if ('，、。　'.includes(ch)) {
+      flush(); runLen = 0;
+      if (ch !== '　') { c.globalAlpha = 0.8; c.beginPath(); c.ellipse(x + size * 0.42, y0 + pitch * 0.3, wMax * 0.55, wMax * 0.85, 0.6, 0, 6.29); c.fill(); }
+      return;
+    }
+    if (runLen >= 2 && rnd() < 0.3) { flush(); runLen = 0; }   // pen lifts between "words"
+    // 2–4 beats per character: swings side to side with an occasional small hook back up
+    const beats = 2 + Math.floor(rnd() * 3);
+    for (let k = 0; k < beats; k++) {
+      side = -side;
+      const u = (k + 0.3 + rnd() * 0.5) / beats;
+      const hook = rnd() < 0.22 ? -pitch * (0.12 + rnd() * 0.12) : 0;
+      ctl.push({ x: x + side * size * (0.08 + rnd() * 0.34), y: y0 + pitch * u + hook, p: rnd() < 0.35 ? 0.2 + rnd() * 0.2 : 0.55 + rnd() * 0.45 });
+    }
+    runLen++;
+  });
+  flush();
+  c.restore();
+  return y + chars.length * pitch;
+}
+// same column breaking as vtext(), drawn as scribble; returns the x of the next free column
+function vscrib(c, text, x, y0, y1, size, pitch, colGap, indent = 0, seed = 1) {
+  const per = Math.floor((y1 - y0) / pitch) - indent;
+  const chars = [...text];
+  for (let i = 0, n = 0; i < chars.length; n++) {
+    let j = Math.min(chars.length, i + per);
+    while (j < chars.length && '，、。'.includes(chars[j])) j++;
+    scribCol(c, chars.slice(i, j).join(''), x, y0 + indent * pitch, size, pitch, seed + n);
+    i = j; x -= colGap;
+  }
+  return x;
+}
+// ---------- the line before strokes are taken (original wording), tap to skip ----------
+const verdictText = n => [`多了 ${n} 筆。`, '依約，多出來的筆畫歸本館所有。'];
+function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
+  let el = document.getElementById('verdict');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'verdict'; el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;padding-bottom:max(118px,calc(env(safe-area-inset-bottom) + 108px));box-sizing:border-box;pointer-events:auto;cursor:pointer;opacity:0;transition:opacity .5s ease;-webkit-tap-highlight-color:transparent';
+    el.innerHTML = '<div style="background:rgba(24,19,15,.72);color:#f3e9d4;padding:18px 26px 16px;border-radius:6px;text-align:center;box-shadow:0 6px 30px rgba(0,0,0,.35);max-width:86vw;font-family:' + KAI.replace(/"/g, "'") + '"><div class="v1" style="font-size:30px;letter-spacing:.12em;line-height:1.3"></div><div class="v2" style="font-size:17px;letter-spacing:.08em;margin-top:6px;color:#e4cfa6"></div><div style="font:11px system-ui,sans-serif;color:#9d8c74;margin-top:10px;letter-spacing:.1em">點一下略過</div></div>';
+    document.body.appendChild(el);
+  }
+  const [a, b] = verdictText(n);
+  el.querySelector('.v1').textContent = a; el.querySelector('.v2').textContent = b;
+  el.style.display = 'flex'; el.style.transition = `opacity ${inMs}ms ease`;
+  window.__verdict = a + b;
+  return new Promise(res => {
+    let done = false, t1, t2;
+    const finish = () => {
+      if (done) return; done = true; clearTimeout(t1); clearTimeout(t2); el.onpointerdown = null;
+      el.style.transition = `opacity ${outMs}ms ease`; el.style.opacity = '0';
+      setTimeout(() => { el.style.display = 'none'; res(); }, outMs);
+    };
+    el.onpointerdown = e => { e.preventDefault(); window.__verdictSkipped = true; finish(); };
+    requestAnimationFrame(() => requestAnimationFrame(() => (el.style.opacity = '1')));
+    t1 = setTimeout(finish, inMs + hold);
+  });
+}
 function drawSeal(c, x, y, r, alpha = 1) {
   c.save(); c.translate(x, y); c.rotate(-0.13); c.globalAlpha = alpha;
   const red = '#b8321f';
@@ -1668,14 +1768,14 @@ async function shareResult(lastResult) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B, washi, vcol, vtext, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
+return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
 })();
 const __m_app_js = (function () {
 // 改名契約所 2D — 北投天狗庵 vertical contract, mobile-first (original code).
 // Presentation only: wording, date, font, matching, name layout, 注音, seal and share image come from shared/core.js (same as 3D).
 const {
   initCore, getCharData, sleep, PAD_UNITS, dateZh, today, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B,
-  washi, drawSeal, runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, nameFigures, shareResult,
+  washi, drawSeal, scribCol, verdict, runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, nameFigures, shareResult,
 } = __m_shared_core_js;
 const $ = s => document.querySelector(s);
 const pad = $('#pad'), fx = $('#fx'), wrap = $('#padWrap'), card = $('#card');
@@ -1695,6 +1795,33 @@ const BRUSH = 8.2;                              // brush width in pad units
 let lastResult = null;
 
 // ---------- the contract text (shared wording) ----------
+// Clause wording stays in the DOM (for layout and screen readers) but is transparent; each laid-out column
+// of it is painted over as faux cursive (shared scribCol), so heads, title and parties stay legible.
+const scribCv = document.createElement('canvas'); scribCv.className = 'scrib'; scribCv.setAttribute('aria-hidden', 'true');
+function paintScrib() {
+  const body = $('.c-body'); if (!body || !body.offsetWidth) return;
+  const br = body.getBoundingClientRect(), k = br.width / body.offsetWidth || 1;   // undo any CSS scale
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = body.offsetWidth, h = body.offsetHeight;
+  scribCv.width = Math.round(w * dpr); scribCv.height = Math.round(h * dpr);
+  scribCv.style.width = w + 'px'; scribCv.style.height = h + 'px';
+  const c = scribCv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+  let n = 0;
+  for (const p of body.querySelectorAll('p')) {
+    const node = [...p.childNodes].find(x => x.nodeType === 3); if (!node) continue;
+    const fs = parseFloat(getComputedStyle(p).fontSize), chars = [...node.textContent];
+    const pitch = fs + (parseFloat(getComputedStyle(p).letterSpacing) || 0);
+    const rg = document.createRange(); rg.selectNodeContents(node);
+    const rects = [...rg.getClientRects()].filter(rc => rc.width >= 1 && rc.height >= 1);
+    let i = 0;
+    rects.forEach((rc, ri) => {   // one rect per laid-out column
+      const hh = rc.height / k, cnt = ri === rects.length - 1 ? chars.length - i : Math.max(1, Math.round(hh / pitch));
+      if (cnt <= 0) return;
+      scribCol(c, chars.slice(i, i + cnt).join(''), (rc.left + rc.width / 2 - br.left) / k, (rc.top - br.top) / k, fs * 0.92, hh / cnt, ++n);
+      i += cnt;
+    });
+  }
+}
 {
   const t = $('.c-title'); t.innerHTML = '';
   C_TITLE.forEach(x => { const s = document.createElement('span'); s.textContent = x; t.appendChild(s); });
@@ -1705,10 +1832,13 @@ let lastResult = null;
     p.appendChild(document.createTextNode(c.text));
     b.appendChild(p);
   }
+  b.appendChild(scribCv);
   $('.c-party-a span').textContent = C_PARTY_A;
   $('.c-lbl').textContent = C_PARTY_B;
   $('#date').textContent = dateZh;
   $('#date').setAttribute('datetime', today.toISOString().slice(0, 10));
+  new ResizeObserver(() => paintScrib()).observe(b);
+  kaiReady.then(paintScrib); document.fonts && document.fonts.ready.then(paintScrib);
 }
 
 // ---------- paper ----------
@@ -1962,8 +2092,9 @@ async function sign() {
   const nodes = res.atoms.map(a => el('path', { d: polyD(a.pts.length > 1 ? a.pts : [a.pts[0], { x: a.pts[0].x + 0.1, y: a.pts[0].y }]), class: 'ink' + (kept.has(a.id) ? ' kept' : ''), 'stroke-width': BRUSH }, fx));
   pad.style.opacity = 0;
 
-  // excess strokes are taken back, top-to-bottom
+  // excess strokes are taken back, top-to-bottom — after one short line saying why (tap to skip)
   const cut = res.atoms.filter(a => !kept.has(a.id)).sort((a, b) => a.pts[0].y - b.pts[0].y);
+  if (cut.length) { window.__phase = 'verdict'; await verdict(cut.length); }
   window.__phase = 'cutting';
   const step = Math.min(150, 2200 / Math.max(cut.length, 1));
   const anims = [];
