@@ -1,4 +1,4 @@
-改名契約所 — 授權與資料來源
+契約書 — 授權與資料來源
 ==========================
 
 本遊戲的程式碼、版面、文字與 SVG 美術皆為原創，與 CAEN Games「今日からお前は」無任何程式碼、美術或文字上的沿用，僅受其玩法概念啟發。
@@ -19,7 +19,7 @@
 
 詳細原始授權說明見 MMAH_COPYING。
 
-3D 版（3d/、dist/改名契約所3D.html）：
+3D 版（3d/、單檔 3D 版）：
 - three.js r170（https://threejs.org），MIT License，見 3d/vendor/three-LICENSE.txt（單檔版附 three-LICENSE.txt）。已打包在本機檔案內，執行時不連 CDN。
 - 3D 場景、飛散的墨線與粒子、印章圖案、音效（Web Audio 即時合成）皆為本專案原創。
 - 契約書上的楷書字型：霞鶩文楷 TC（LXGW WenKai TC）子集，SIL Open Font License 1.1，見 OFL-LXGW.txt。
