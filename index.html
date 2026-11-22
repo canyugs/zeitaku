@@ -5153,7 +5153,7 @@ const zhNum = n => String(n).split('').map(d => '〇一二三四五六七八九'
 const zhMD = n => (n < 10 ? '' : n < 20 ? '十' : '一二三'[Math.floor(n / 10) - 1] + '十') .replace(/^一十/, '十') + (n % 10 ? '〇一二三四五六七八九'[n % 10] : '');
 const dateZh = `中華民國${zhNum(today.getFullYear() - 1911)}年${zhMD(today.getMonth() + 1)}月${zhMD(today.getDate())}日`;
 // contract wording (original)
-const C_TITLE = ['北投天狗庵', '勞動契約書'];
+const C_TITLE = ['契約書'];   // the paper is just headed 契約書; everything but the signature is kept quiet
 const C_BODY = [
   { text: '甲方天狗庵女將玄媽，收乙方於本館作女中，議定條款如左，各自信守，不得反悔' },
   { head: '壹、工作項目', text: '乙方聽從差遣，司燒湯刷池奉茶送膳' },
@@ -5264,25 +5264,25 @@ function scribCol(c, text, x, y, size, pitch = size * 1.12, seed = 1, ink = '#21
   return y + chars.length * pitch;
 }
 // same column breaking as vtext(), drawn as scribble; returns the x of the next free column
-function vscrib(c, text, x, y0, y1, size, pitch, colGap, indent = 0, seed = 1) {
+function vscrib(c, text, x, y0, y1, size, pitch, colGap, indent = 0, seed = 1, ink = '#211d19') {
   const per = Math.floor((y1 - y0) / pitch) - indent;
   const chars = [...text];
   for (let i = 0, n = 0; i < chars.length; n++) {
     let j = Math.min(chars.length, i + per);
     while (j < chars.length && '，、。'.includes(chars[j])) j++;
-    scribCol(c, chars.slice(i, j).join(''), x, y0 + indent * pitch, size, pitch, seed + n);
+    scribCol(c, chars.slice(i, j).join(''), x, y0 + indent * pitch, size, pitch, seed + n, ink);
     i = j; x -= colGap;
   }
   return x;
 }
-// ---------- the line before strokes are taken (original wording), tap to skip ----------
-const verdictText = n => [`多了 ${n} 筆。`, '依約，多出來的筆畫歸本館所有。'];
+// ---------- the line before strokes are taken (the owner chose this wording), tap to skip ----------
+const verdictText = n => ['真是個奢侈的名字啊。', `多了 ${n} 筆，歸本館所有。`];
 function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
   let el = document.getElementById('verdict');
   if (!el) {
     el = document.createElement('div'); el.id = 'verdict'; el.setAttribute('role', 'status');
     el.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;padding-bottom:max(118px,calc(env(safe-area-inset-bottom) + 108px));box-sizing:border-box;pointer-events:auto;cursor:pointer;opacity:0;transition:opacity .5s ease;-webkit-tap-highlight-color:transparent';
-    el.innerHTML = '<div style="background:rgba(24,19,15,.72);color:#f3e9d4;padding:18px 26px 16px;border-radius:6px;text-align:center;box-shadow:0 6px 30px rgba(0,0,0,.35);max-width:86vw;font-family:' + KAI.replace(/"/g, "'") + '"><div class="v1" style="font-size:30px;letter-spacing:.12em;line-height:1.3"></div><div class="v2" style="font-size:17px;letter-spacing:.08em;margin-top:6px;color:#e4cfa6"></div><div style="font:11px system-ui,sans-serif;color:#9d8c74;margin-top:10px;letter-spacing:.1em">點一下略過</div></div>';
+    el.innerHTML = '<div style="background:rgba(24,19,15,.72);color:#f3e9d4;padding:18px 26px 16px;border-radius:6px;text-align:center;box-shadow:0 6px 30px rgba(0,0,0,.35);max-width:86vw;font-family:' + KAI.replace(/"/g, "'") + '"><div class="v1" style="font-size:clamp(19px,6vw,30px);letter-spacing:.1em;line-height:1.3;white-space:nowrap"></div><div class="v2" style="font-size:17px;letter-spacing:.08em;margin-top:6px;color:#e4cfa6"></div><div style="font:11px system-ui,sans-serif;color:#9d8c74;margin-top:10px;letter-spacing:.1em">點一下略過</div></div>';
     document.body.appendChild(el);
   }
   const [a, b] = verdictText(n);
@@ -5446,7 +5446,7 @@ async function renderShareImage(res) {
   washi(c, w, h, 777);
   const red = '#b8321f', ink = '#211d19';
   c.fillStyle = ink;
-  vcol(c, C_TITLE[0] + '　' + C_TITLE[1], 975, 110, 56, 64);
+  vcol(c, C_TITLE.join('　'), 975, 110, 56, 64);
   c.fillStyle = '#5b5045'; vcol(c, dateZh, 880, 120, 28, 33);
   // new name, vertical, with vertical 注音 to the right of each character
   const n = res.chars.length, size = n === 1 ? 460 : 390, gap = 40;
@@ -5605,23 +5605,16 @@ $('#soundBtn').onclick = () => { soundOn = !soundOn; $('#soundBtn').setAttribute
 const SEAL = { x: 480, y: 815, r: 72 };
 function drawPaperBase(c) {
   washi(c, CW, CH);
-  c.fillStyle = '#211d19';
-  // title: two columns at the right edge
-  vcol(c, C_TITLE[0], 1290, 95, 84, 92);
-  vcol(c, C_TITLE[1], 1182, 205, 84, 92);
-  // body clauses, right-to-left
-  const top = 105, bottom = 905, fs = 36, pitch = 42, gap = 50;
-  let x = 1072;
-  for (const b of C_BODY) {
-    // clause heads stay legible; the wording itself is faux cursive (shared/core.js vscrib)
-    if (b.head) { vcol(c, b.head, x, top, fs, pitch); x -= gap; x = vscrib(c, b.text, x, top, bottom, fs, pitch, gap, 2); }
-    else x = vscrib(c, b.text, x, top, bottom, fs, pitch, gap);
-    x -= 8;
-  }
-  // signature block (left)
-  vcol(c, dateZh, 560, 120, 28, 33);
-  vcol(c, C_PARTY_A, 388, 110, 52, 58);
-  vcol(c, C_PARTY_B, PAD.x + PAD.w / 2, 110, 52, 58);
+  // everything except the signature is kept quiet: small faded title, faint faux-cursive clauses (no heads),
+  // faded date and party labels — the eye goes to the signing space and, later, to what is left of the name
+  c.fillStyle = 'rgba(33,29,25,.58)';
+  vcol(c, C_TITLE.join(''), 1272, 110, 60, 70);
+  const top = 125, bottom = 885, fs = 32, pitch = 40, gap = 46;
+  let x = 1150;
+  for (const b of C_BODY) { x = vscrib(c, b.text, x, top, bottom, fs, pitch, gap, b.head ? 1 : 0, 1, 'rgba(70,56,40,.34)'); x -= 14; }
+  c.fillStyle = 'rgba(60,50,40,.42)'; vcol(c, dateZh, 560, 130, 24, 29);
+  c.fillStyle = 'rgba(33,29,25,.45)'; vcol(c, C_PARTY_A, 388, 120, 34, 40);
+  c.fillStyle = 'rgba(33,29,25,.5)'; vcol(c, C_PARTY_B, PAD.x + PAD.w / 2, 110, 40, 46);
   // the blank signing space: only two faint column rules
   c.strokeStyle = 'rgba(120,90,50,.16)'; c.lineWidth = 1.5;
   c.beginPath(); c.moveTo(PAD.x, PAD.y); c.lineTo(PAD.x, PAD.y + PAD.h); c.moveTo(PAD.x + PAD.w, PAD.y); c.lineTo(PAD.x + PAD.w, PAD.y + PAD.h); c.stroke();
