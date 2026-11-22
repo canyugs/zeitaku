@@ -83,7 +83,7 @@ body.locked:not(.done) .about-link{opacity:0;pointer-events:none}
   .sheet{left:auto;right:4vw;bottom:auto;top:50%;transform:translate(0,-50%);width:300px}
   .sheet.hidden{transform:translate(140%,-50%)}
 }
-/* toggle between the framed 乙方 field and the whole contract while writing */
+/* toggle between the framed signing field and the whole contract while writing */
 .view-btn{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:12px;font-size:14px;padding:6px 14px;z-index:5;background:#1d1a17aa}
 body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
 /* phone in landscape: controls in a column on the right so the signing field can use the full height */
@@ -5161,11 +5161,11 @@ const dateZh = `中華民國${zhNum(today.getFullYear() - 1911)}年${zhMD(today.
 // contract wording (original)
 const C_TITLE = ['契約書'];   // the paper is just headed 契約書; everything but the signature is kept quiet
 const C_BODY = [
-  { text: '甲方天狗庵女將玄媽，收乙方於本館作女中，議定條款如左，各自信守，不得反悔' },
-  { head: '壹、工作項目', text: '乙方聽從差遣，司燒湯刷池奉茶送膳' },
-  { head: '貳、工作地點', text: '乙方於北投溪畔本館服勞，不得擅離' },
+  // the wording is drawn as faint faux cursive; who the other party is no longer matters, so nobody is named
+  { text: '立約人自願入湯屋作女中，議定條款如左，各自信守，不得反悔' },
+  { head: '壹、工作項目', text: '聽從差遣，司燒湯刷池奉茶送膳' },
+  { head: '貳、工作地點', text: '於溪畔湯屋服勞，不得擅離' },
 ];
-const C_PARTY_A = '甲方　天狗庵女將　玄媽', C_PARTY_B = '乙方';
 
 // ---------- paper, vertical text, seal (canvas) ----------
 function washi(c, w, h, seed = 12345, k = 1) {
@@ -5282,7 +5282,7 @@ function vscrib(c, text, x, y0, y1, size, pitch, colGap, indent = 0, seed = 1, i
   return x;
 }
 // ---------- the line before strokes are taken (the owner chose this wording), tap to skip ----------
-const verdictText = n => ['真是個奢侈的名字啊。', `多了 ${n} 筆，歸本館所有。`];
+const verdictText = n => ['真是個奢侈的名字啊。', `多了 ${n} 筆，收走了。`];
 function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
   let el = document.getElementById('verdict');
   if (!el) {
@@ -5505,12 +5505,12 @@ async function shareResult(lastResult) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
+return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
 })();
 const __m_3d_app3d_js = (function () {
 // 契約書 3D — one sheet of washi paper (original code). Uses global THREE (vendor/three.min.js, bundled locally).
 const {
-  initCore, sleep, clamp, KAI, dateZh, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B, washi, vcol, vtext, vscrib, verdict, drawSeal,
+  initCore, sleep, clamp, KAI, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, vscrib, verdict, drawSeal,
   runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, medLen, nameFigures, shareResult,
 } = __m_shared_core_js;
 const T = window.THREE;
@@ -5545,7 +5545,7 @@ charsReady.then(d => (charData = d));
 // ---------- paper geometry (paper canvas px ↔ paper local units) ----------
 const CW = 1400, CH = 1000;                  // paper texture size (landscape card)
 const PW = 3, PH = PW * CH / CW;             // paper size in world units
-const PAD = { x: 45, y: 235, w: 290, h: 675 };  // signing space under 「乙方」 (canvas px), as wide as the left margin allows; written top-to-bottom
+const PAD = { x: 45, y: 235, w: 290, h: 675 };  // signing space (canvas px), as wide as the left margin allows; written top-to-bottom
 const PU_W = 200, PU_H = PU_W * PAD.h / PAD.w;  // writing box in "pad units" (≈ the scale the 2D matcher saw per character)
 const VERTICAL = PU_H > PU_W;
 const S = PAD.w / PU_W;                      // canvas px per pad unit
@@ -5618,9 +5618,8 @@ function drawPaperBase(c) {
   const top = 125, bottom = 885, fs = 32, pitch = 40, gap = 46;
   let x = 1150;
   for (const b of C_BODY) { x = vscrib(c, b.text, x, top, bottom, fs, pitch, gap, b.head ? 1 : 0, 1, 'rgba(70,56,40,.34)'); x -= 14; }
-  c.fillStyle = 'rgba(60,50,40,.42)'; vcol(c, dateZh, 560, 130, 24, 29);
-  c.fillStyle = 'rgba(33,29,25,.45)'; vcol(c, C_PARTY_A, 388, 120, 34, 40);
-  c.fillStyle = 'rgba(33,29,25,.5)'; vcol(c, C_PARTY_B, PAD.x + PAD.w / 2, 110, 40, 46);
+  // no party labels: just the date between the clauses and the signing space
+  c.fillStyle = 'rgba(60,50,40,.42)'; vcol(c, dateZh, 520, 130, 24, 29);
   // the blank signing space: only two faint column rules
   c.strokeStyle = 'rgba(120,90,50,.16)'; c.lineWidth = 1.5;
   c.beginPath(); c.moveTo(PAD.x, PAD.y); c.lineTo(PAD.x, PAD.y + PAD.h); c.moveTo(PAD.x + PAD.w, PAD.y); c.lineTo(PAD.x + PAD.w, PAD.y + PAD.h); c.stroke();
@@ -5773,7 +5772,7 @@ function deform(geo, rest, ox, oy) {
 }
 
 // ---------- layout / camera fit ----------
-// focusK 0 = whole contract, 1 = camera framed on the 乙方 signing field (it fills most of the screen); tweened, never jumps
+// focusK 0 = whole contract, 1 = camera framed on the signing field (it fills most of the screen); tweened, never jumps
 const FIT_WRITE = { top: 24, bottom: 140, left: 0, right: 0 };
 // controls side-mounted (phone in landscape, see style3d.css): keep the right edge clear instead of the bottom
 const sideBar = () => { const b = $('#bar'); return b && b.offsetHeight > innerHeight * 0.6 ? b.offsetWidth : 0; };
@@ -6341,7 +6340,7 @@ try {
 
 // ---------- boot ----------
 washi(paperCv.getContext('2d'), CW, CH); paperChanged();
-kaiReady.then(() => { drawPaperBase(paperBase.getContext('2d')); resetPaper(); window.__paperReady = true; setTimeout(() => { if (!locked) setFocus(true); }, 900); });   // show the contract, then the camera moves in on the 乙方 field
+kaiReady.then(() => { drawPaperBase(paperBase.getContext('2d')); resetPaper(); window.__paperReady = true; setTimeout(() => { if (!locked) setFocus(true); }, 900); });   // show the contract, then the camera moves in on the signing field
 window.__view = 'full';
 drawInk();
 window.__phase = 'write';

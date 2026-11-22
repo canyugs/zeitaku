@@ -143,7 +143,7 @@ body.done .bar{visibility:hidden}
   .btn{font-size:17px}
 }
 
-/* ---------- focused signing: the 乙方 field enlarged ---------- */
+/* ---------- focused signing: the signing field enlarged ---------- */
 .signer{position:fixed;left:0;right:0;top:0;bottom:var(--bar);z-index:20;display:flex;flex-direction:column;align-items:center;
   padding:calc(var(--safe-t) + 8px) 12px 8px;background:rgba(17,14,12,.88)}
 .signer.hidden{display:none}
@@ -205,6 +205,9 @@ body.done .bar{visibility:hidden}
 .c-party-a{font-size:.72em;opacity:.45}
 .c-date{color:var(--ink-soft)}
 .c-lbl{font-size:.8em;opacity:.5}
+/* r12: no party labels; the date column sits alone, the signing field gets the freed height */
+.c-party-a{opacity:1}
+.c-party-b{padding-top:.8em}
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
@@ -215,11 +218,10 @@ body.done .bar{visibility:hidden}
     <div class="card-in">
       <h1 class="c-title"></h1>
       <div class="c-body"></div>
-      <div class="c-party-a"><span></span><time class="c-date" id="date"></time></div>
+      <div class="c-party-a"><time class="c-date" id="date"></time></div>
       <div class="c-party-b">
-        <div class="c-lbl"></div>
         <div class="pad-wrap" id="padWrap">
-          <canvas id="pad" aria-label="乙方簽名欄（點一下放大簽名）"></canvas>
+          <canvas id="pad" aria-label="簽名欄（點一下放大簽名）"></canvas>
           <svg id="fx" class="fx" aria-hidden="true"></svg>
         </div>
       </div>
@@ -228,14 +230,14 @@ body.done .bar{visibility:hidden}
   </article>
 </main>
 
-<!-- focused signing: the 乙方 field, enlarged to (nearly) the whole screen; strokes still land in the contract's pad units -->
-<section class="signer hidden" id="signer" aria-label="乙方簽名欄（放大）">
+<!-- focused signing: the signing field, enlarged to (nearly) the whole screen; strokes still land in the contract's pad units -->
+<section class="signer hidden" id="signer" aria-label="簽名欄（放大）">
   <div class="signer-top" id="signerTop">
-    <span class="signer-lbl">乙方</span>
+    <span class="signer-lbl"></span>
     <button class="btn ghost" id="viewBtn" type="button">看契約全文</button>
   </div>
   <div class="signer-box" id="signerBox">
-    <canvas id="bigPad" aria-label="乙方簽名欄"></canvas>
+    <canvas id="bigPad" aria-label="簽名欄"></canvas>
   </div>
 </section>
 
@@ -1437,11 +1439,11 @@ const dateZh = `中華民國${zhNum(today.getFullYear() - 1911)}年${zhMD(today.
 // contract wording (original)
 const C_TITLE = ['契約書'];   // the paper is just headed 契約書; everything but the signature is kept quiet
 const C_BODY = [
-  { text: '甲方天狗庵女將玄媽，收乙方於本館作女中，議定條款如左，各自信守，不得反悔' },
-  { head: '壹、工作項目', text: '乙方聽從差遣，司燒湯刷池奉茶送膳' },
-  { head: '貳、工作地點', text: '乙方於北投溪畔本館服勞，不得擅離' },
+  // the wording is drawn as faint faux cursive; who the other party is no longer matters, so nobody is named
+  { text: '立約人自願入湯屋作女中，議定條款如左，各自信守，不得反悔' },
+  { head: '壹、工作項目', text: '聽從差遣，司燒湯刷池奉茶送膳' },
+  { head: '貳、工作地點', text: '於溪畔湯屋服勞，不得擅離' },
 ];
-const C_PARTY_A = '甲方　天狗庵女將　玄媽', C_PARTY_B = '乙方';
 
 // ---------- paper, vertical text, seal (canvas) ----------
 function washi(c, w, h, seed = 12345, k = 1) {
@@ -1558,7 +1560,7 @@ function vscrib(c, text, x, y0, y1, size, pitch, colGap, indent = 0, seed = 1, i
   return x;
 }
 // ---------- the line before strokes are taken (the owner chose this wording), tap to skip ----------
-const verdictText = n => ['真是個奢侈的名字啊。', `多了 ${n} 筆，歸本館所有。`];
+const verdictText = n => ['真是個奢侈的名字啊。', `多了 ${n} 筆，收走了。`];
 function verdict(n, { inMs = 500, hold = 1300, outMs = 350 } = {}) {
   let el = document.getElementById('verdict');
   if (!el) {
@@ -1781,13 +1783,13 @@ async function shareResult(lastResult) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
+return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
 })();
 const __m_app_js = (function () {
 // 契約書 2D — vertical contract, mobile-first (original code).
 // Presentation only: wording, date, font, matching, name layout, 注音, seal and share image come from shared/core.js (same as 3D).
 const {
-  initCore, getCharData, sleep, PAD_UNITS, dateZh, today, C_TITLE, C_BODY, C_PARTY_A, C_PARTY_B,
+  initCore, getCharData, sleep, PAD_UNITS, dateZh, today, C_TITLE, C_BODY,
   washi, drawSeal, scribCol, verdict, runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, nameFigures, shareResult,
 } = __m_shared_core_js;
 const $ = s => document.querySelector(s);
@@ -1846,8 +1848,6 @@ function paintScrib() {
     b.appendChild(p);
   }
   b.appendChild(scribCv);
-  $('.c-party-a span').textContent = C_PARTY_A;
-  $('.c-lbl').textContent = C_PARTY_B;
   $('#date').textContent = dateZh;
   $('#date').setAttribute('datetime', today.toISOString().slice(0, 10));
   new ResizeObserver(() => paintScrib()).observe(b);
@@ -1874,12 +1874,12 @@ async function stampSeal() {
   const cv = document.createElement('canvas'); cv.width = cv.height = 240;
   drawSeal(cv.getContext('2d'), 120, 120, 104);
   img.src = cv.toDataURL('image/png');
-  // under 玄媽 in 甲方's column, overlapping the column edges
+  // on the date column, low on the card, overlapping the column edges
   const cr = card.getBoundingClientRect(), k = cr.width / card.offsetWidth;
-  const ar = $('.c-party-a').getBoundingClientRect(), nr = $('.c-party-a span').getBoundingClientRect();
+  const ar = $('.c-party-a').getBoundingClientRect();
   const sz = img.offsetWidth;
   img.style.left = `${(ar.left - cr.left + ar.width / 2) / k - sz * 0.5}px`;
-  img.style.top = `${(nr.bottom - cr.top) / k + sz * 0.15}px`;
+  img.style.top = `${card.offsetHeight * 0.72 - sz * 0.5}px`;
   img.classList.remove('on'); void img.offsetWidth; img.classList.add('on');
   try { navigator.vibrate && navigator.vibrate(18); } catch (e) {}
   await sleep(450);
@@ -1912,7 +1912,7 @@ function redraw() {
   $('#signBtn').disabled = locked || strokes.length < 2;
   redrawBig();
 }
-// ---------- focused signing (the 乙方 field enlarged to nearly the whole screen) ----------
+// ---------- focused signing (the signing field enlarged to nearly the whole screen) ----------
 // The big box is only a view: its frame (200 units wide, like the pad) is fitted into the contract pad's 200×PU_H box
 // (uniform scale ≤ 1, centred), so strokes are always stored in contract pad units -> same matcher input as before / as 3D.
 const signer = $('#signer'), sbox = $('#signerBox'), big = $('#bigPad'), bctx = big.getContext('2d');
@@ -2218,7 +2218,7 @@ window.__game = {
 };
 
 resize();
-kaiReady.then(() => { if (!locked) resize(); setTimeout(openSigner, 700); });   // show the contract, then zoom into the 乙方 field
+kaiReady.then(() => { if (!locked) resize(); setTimeout(openSigner, 700); });   // show the contract, then zoom into the signing field
 
 return {  };
 })();
