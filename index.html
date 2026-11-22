@@ -106,6 +106,7 @@ body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
 @keyframes cflash{0%,60%{color:#f3b08a}100%{color:#cdbfa6}}
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 56px);transform:translateX(-50%);z-index:60;max-width:min(88vw,420px);padding:10px 16px;border-radius:12px;background:#efe6d2;color:#211d19;font-size:15px;line-height:1.5;box-shadow:0 10px 30px #000a;text-align:center}
 .toast.hidden{display:none}
+.gllost .nogl-why{font-size:11px;color:#8c7f6c;word-break:break-all;white-space:pre-line;font-family:system-ui,sans-serif;max-width:420px;margin:0}
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
@@ -5417,6 +5418,23 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const easeOut = k => 1 - Math.pow(1 - k, 3);
 const easeInOut = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 const MOBILE = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 600;
+// ---------- GPU tiers ----------
+// full: desktop. lite: phones (≈1x resolution, no real-time shadows, 1024-wide paper texture, renders only while something
+// moves). min: after this device lost the WebGL context once (remembered 7 days): smaller drawing buffer still.
+const TIERS = {
+  full: { pr: 2, buf: 4.2e6, prMin: 1, aa: true, shadows: true, shadowMap: 2048, paperW: 1400, PN: 1400, seg: [30, 40], breathe: 1, onDemand: false },
+  lite: { pr: 1.25, buf: 0.6e6, prMin: 0.75, aa: false, shadows: false, shadowMap: 0, paperW: 1024, PN: 500, seg: [18, 24], breathe: 0, onDemand: true },
+  min: { pr: 1, buf: 0.4e6, prMin: 0.6, aa: false, shadows: false, shadowMap: 0, paperW: 1024, PN: 250, seg: [14, 18], breathe: 0, onDemand: true },
+};
+const TIER_KEY = 'zeitaku.gltier';
+function savedTier() { try { const v = JSON.parse(localStorage.getItem(TIER_KEY) || 'null'); if (v && TIERS[v.tier] && Date.now() - v.t < 7 * 864e5) return v.tier; } catch (e) {} return null; }
+const urlTier = new URLSearchParams(location.search).get('gl');
+let TIER = TIERS[urlTier] ? urlTier : (savedTier() || (MOBILE ? 'lite' : 'full'));
+let TQ = TIERS[TIER];
+window.__tier = TIER;
+// render on demand (lite tiers): frames are drawn only while something changes; wake() asks for a few more
+let wakeN = 4;
+function wake(n = 3) { wakeN = Math.max(wakeN, n); }
 
 // ---------- data ----------
 const { charsReady, kaiReady } = initCore({ base: './' });   // shared core: data, font, matcher worker
@@ -5533,7 +5551,7 @@ function createGL() {
   const base = { alpha: true, depth: true, stencil: false, premultipliedAlpha: true, preserveDrawingBuffer: false, failIfMajorPerformanceCaveat: false };
   const tries = [
     // phones: no MSAA buffers (a ≥1.5x screen hides the jaggies), default GPU, so the drawing buffers stay small
-    { ...base, antialias: !MOBILE, powerPreference: MOBILE ? 'default' : 'high-performance' },
+    { ...base, antialias: TQ.aa, powerPreference: MOBILE ? 'default' : 'high-performance' },
     { ...base, antialias: false, powerPreference: 'default' },
     { ...base, antialias: false, powerPreference: 'low-power' },
     { antialias: false, failIfMajorPerformanceCaveat: false },
@@ -5565,16 +5583,18 @@ try {
   showNoGL(e);
   throw e;
 }
-const DPR_CAP = MOBILE ? 1.5 : 2;
-const MAX_BUF_PX = MOBILE ? 1.6e6 : 4.2e6;   // cap the drawing buffer area (412x915 @1.5 ≈ 0.85 Mpx)
+// drawing buffer: device pixel ratio capped per tier, buffer area capped too (lite on 412x915: 1.0x ≈ 0.38 Mpx … 1.25x 0.59 Mpx)
 function pixelRatio() {
-  const pr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
-  return Math.max(1, Math.min(pr, Math.sqrt(MAX_BUF_PX / Math.max(1, innerWidth * innerHeight))));
+  const pr = Math.min(window.devicePixelRatio || 1, TQ.pr);
+  return Math.max(Math.min(TQ.prMin, pr), Math.min(pr, Math.sqrt(TQ.buf / Math.max(1, innerWidth * innerHeight))));
 }
+const GL0 = renderer.getContext();
+const GPU_NAME = (() => { try { const x = GL0.getExtension('WEBGL_debug_renderer_info'); return String(GL0.getParameter(x ? x.UNMASKED_RENDERER_WEBGL : GL0.RENDERER)); } catch (e) { return '?'; } })();
+const MAX_TEX = GL0.getParameter(GL0.MAX_TEXTURE_SIZE);
 renderer.setPixelRatio(pixelRatio());
 renderer.outputColorSpace = T.SRGBColorSpace;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = MOBILE ? 1 /* THREE.PCFShadowMap (not in the slim bundle) */ : T.PCFSoftShadowMap;
+renderer.shadowMap.enabled = TQ.shadows;   // lite tiers: no shadow map; a pre-blurred shadow card instead
+renderer.shadowMap.type = T.PCFSoftShadowMap;
 $('#stage').appendChild(renderer.domElement);
 
 const scene = new T.Scene();
@@ -5582,8 +5602,8 @@ const camera = new T.PerspectiveCamera(30, 1, 0.1, 100);
 scene.add(new T.HemisphereLight(0xfffbf3, 0xc9b9a0, 1.55));
 const sun = new T.DirectionalLight(0xfff6e8, 1.9);
 sun.position.set(-2.2, 3.2, 6.5);
-sun.castShadow = true;
-sun.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
+sun.castShadow = TQ.shadows;
+sun.shadow.mapSize.set(TQ.shadowMap || 512, TQ.shadowMap || 512);
 Object.assign(sun.shadow.camera, { left: -3.2, right: 3.2, top: 3.2, bottom: -3.2, near: 1, far: 20 });
 sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.015; sun.shadow.radius = 4;
 scene.add(sun);
@@ -5597,27 +5617,44 @@ sun.target = paperGroup;
 const ground = new T.Mesh(new T.PlaneGeometry(14, 14), new T.ShadowMaterial({ opacity: 0.5 }));
 ground.position.z = -0.09; ground.receiveShadow = true;
 paperGroup.add(ground);
+ground.visible = TQ.shadows;
+const fakeShadow = (() => {   // 128 px pre-blurred card under the paper
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  x.filter = 'blur(9px)'; x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(18, 18, 92, 92);
+  const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace;
+  const m = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  m.scale.set(PW * 1.3, PH * 1.3, 1); m.position.set(0.06, -0.08, -0.08); m.renderOrder = -1;
+  return m;
+})();
+fakeShadow.visible = !TQ.shadows;
+paperGroup.add(fakeShadow);
 
-const paperTex = new T.CanvasTexture(paperCv);
-paperTex.colorSpace = T.SRGBColorSpace; paperTex.anisotropy = 4;
-const SEG_X = MOBILE ? 22 : 30, SEG_Y = MOBILE ? 30 : 40;
+// the paper is laid out at 1400x1000; lite tiers upload a 1024x731 copy (3.0 MB + mips instead of 5.6 MB + mips)
+const paperTexCv = TQ.paperW < CW ? Object.assign(document.createElement('canvas'), { width: TQ.paperW, height: Math.round(TQ.paperW * CH / CW) }) : paperCv;
+const paperTex = new T.CanvasTexture(paperTexCv);
+paperTex.colorSpace = T.SRGBColorSpace; paperTex.anisotropy = TQ.shadows ? 4 : 2;
+function paperChanged() {
+  if (paperTexCv !== paperCv) paperTexCv.getContext('2d').drawImage(paperCv, 0, 0, paperTexCv.width, paperTexCv.height);
+  paperTex.needsUpdate = true; wake();
+}
+const [SEG_X, SEG_Y] = TQ.seg;
 const paperGeo = new T.PlaneGeometry(PW, PH, SEG_X, SEG_Y);
 const paperMat = new T.MeshStandardMaterial({ map: paperTex, roughness: 0.96, metalness: 0, side: T.FrontSide });
 const paper = new T.Mesh(paperGeo, paperMat);
-paper.castShadow = true; paper.receiveShadow = true;
+paper.castShadow = TQ.shadows; paper.receiveShadow = TQ.shadows;
 paperGroup.add(paper);
 const paperBack = new T.Mesh(paperGeo, new T.MeshStandardMaterial({ color: 0xeee3cf, roughness: 1, side: T.BackSide }));
 paperGroup.add(paperBack);
 
 const inkTex = new T.CanvasTexture(inkCv);
-inkTex.colorSpace = T.SRGBColorSpace; inkTex.anisotropy = 4;
+inkTex.colorSpace = T.SRGBColorSpace; inkTex.anisotropy = TQ.shadows ? 4 : 1;
 // re-uploaded on every ink change while writing: no mipmap chain to rebuild each time (it is viewed at ~1:1 anyway)
 inkTex.generateMipmaps = false; inkTex.minFilter = 1006;   // THREE.LinearFilter (not in the slim bundle)
 const [ix0, iy0] = padToLocal(0, 0), [ix1, iy1] = padToLocal(PU_W, PU_H);
 const inkGeo = new T.PlaneGeometry(ix1 - ix0, iy0 - iy1, 24, 9);
 const inkMesh = new T.Mesh(inkGeo, new T.MeshStandardMaterial({ map: inkTex, transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
 inkMesh.position.set((ix0 + ix1) / 2, (iy0 + iy1) / 2, 0);
-inkMesh.receiveShadow = true;
+inkMesh.receiveShadow = TQ.shadows;
 paperGroup.add(inkMesh);
 const paperRest = paperGeo.attributes.position.array.slice();
 const inkRest = inkGeo.attributes.position.array.slice();
@@ -5628,7 +5665,7 @@ let flutter = 0, jolt = 0, joltAt = [0, 0], lift = 0, time = 0;
 function paperZ(x, y) {
   const nx = x / (PW / 2), ny = y / (PH / 2);
   let z = 0.03 * nx * nx + 0.012 * Math.max(0, ny) * ny * ny;
-  z += 0.004 * Math.sin(time * 1.1 + x * 1.3 + y * 0.7);
+  if (TQ.breathe) z += 0.004 * Math.sin(time * 1.1 + x * 1.3 + y * 0.7);   // idle breathing: desktop only (needs every frame)
   if (flutter > 0.0005) z += flutter * Math.sin(x * 2.4 - time * 10) * Math.sin(y * 1.3 + time * 6.5) * (0.35 + 0.65 * nx * nx);
   if (jolt > 0.0005) { const dx = x - joltAt[0], dy = y - joltAt[1]; z -= jolt * Math.exp(-(dx * dx + dy * dy) * 1.2) * Math.cos(time * 30); }
   return z + lift * (0.5 + 0.5 * nx * nx);
@@ -5691,6 +5728,7 @@ function resize() {
   // Android fires resize whenever the URL bar slides; only reallocate the drawing buffer when it really changes
   const pr = pixelRatio(), key = `${innerWidth}x${innerHeight}@${pr}`;
   if (key !== lastSize) { lastSize = key; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false); }
+  wake();
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   if (!fitCur) fitCur = targetFit();
 }
@@ -5762,7 +5800,7 @@ function drawInk() {
   $('#signBtn').disabled = locked || strokes.length < 2;
 }
 function resetPaper() {
-  const c = paperCv.getContext('2d'); c.drawImage(paperBase, 0, 0); paperTex.needsUpdate = true;
+  const c = paperCv.getContext('2d'); c.drawImage(paperBase, 0, 0); paperChanged();
 }
 
 // ---------- input: raycast onto the paper ----------
@@ -5884,7 +5922,7 @@ function makeStrip(atom, delay) {
   for (let i = 0; i < n - 1; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, c, b, b, c, d); }
   geo.setIndex(idx);
   const mesh = new T.Mesh(geo, stripMat.clone());
-  mesh.castShadow = true;
+  mesh.castShadow = TQ.shadows;
   const g = new T.Group(); g.add(mesh); g.visible = false;
   paperGroup.add(g);
   const C = P.reduce((a, q) => [a[0] + q[0] / n, a[1] + q[1] / n], [0, 0]);
@@ -5954,7 +5992,7 @@ function updateStrip(st, now, dt) {
 }
 
 // ink / glimmer particles
-const PN = MOBILE ? 700 : 1400;
+const PN = TQ.PN;
 const pPos = new Float32Array(PN * 3), pCol = new Float32Array(PN * 4), pVel = new Float32Array(PN * 3), pLife = new Float32Array(PN), pMax = new Float32Array(PN);
 const pGeo = new T.BufferGeometry();
 pGeo.setAttribute('position', new T.BufferAttribute(pPos, 3));
@@ -5998,6 +6036,7 @@ function updateParticles(dt) {
     pCol[i * 4 + 3] = k * k;
   }
   if (any) { pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true; }
+  return any;
 }
 
 // seal stamp (a flat imprint that drops onto the paper, then is baked into the paper texture)
@@ -6016,7 +6055,7 @@ async function stampSeal() {
   }, k => k * k);
   sfx.stamp(); buzz(35);
   jolt = 0.05; joltAt = [sx, sy];
-  drawSeal(paperCv.getContext('2d'), SEAL.x, SEAL.y, SEAL.r); paperTex.needsUpdate = true;
+  drawSeal(paperCv.getContext('2d'), SEAL.x, SEAL.y, SEAL.r); paperChanged();
   await sleep(60);
   paperGroup.remove(m); m.geometry.dispose(); m.material.dispose(); tex.dispose();
 }
@@ -6134,10 +6173,15 @@ function loop(now) {
   const off = 1 - 0.75 * focusK;   // slight 3/4 view on the whole contract, nearly head-on while signing
   camera.position.set(fitCur.x + 0.15 * off, fitCur.y - 0.12 * off, fitCur.d);
   camera.lookAt(fitCur.x, fitCur.y, 0);
+  const camMoving = Math.abs(tf.d - fitCur.d) + Math.abs(tf.x - fitCur.x) + Math.abs(tf.y - fitCur.y) > 2e-4;
+  const pAlive = updateParticles(dt);
+  // lite tiers: when nothing moves, draw nothing (no GPU work while the phone just shows the contract)
+  if (TQ.onDemand && !(wakeN > 0 || tweens.size || current || inkDirty || inkTail || strips.length || pAlive || camMoving || flutter > 5e-4 || jolt > 5e-4)) return;
+  if (wakeN > 0) wakeN--;
+  window.__frames = (window.__frames || 0) + 1;
   deform(paperGeo, paperRest, 0, 0);
   deform(inkGeo, inkRest, inkMesh.position.x, inkMesh.position.y);
   for (const st of strips) updateStrip(st, now, dt);
-  updateParticles(dt);
   for (let i = strips.length - 1; i >= 0; i--) if (strips[i].done) strips.splice(i, 1);
   if (glLost) return;
   if (inkDirty) { inkDirty = false; inkTail = false; drawInk(); tailFrom = current ? current.length : 0; }
@@ -6151,19 +6195,38 @@ function loop(now) {
 let glLost = false, glLostTimer = 0;
 const SAVE_KEY = 'zeitaku.strokes';
 const saveStrokes = () => { try { if (!locked && strokes.length) sessionStorage.setItem(SAVE_KEY, JSON.stringify(strokes)); } catch (e) {} };
+function gpuInfo() {
+  const m = renderer.info.memory;
+  return `GPU ${GPU_NAME.slice(0, 70)}｜MAX_TEX ${MAX_TEX}｜tier ${TIER}｜DPR ${window.devicePixelRatio || 1}→${renderer.getPixelRatio().toFixed(2)}｜buf ${cvs.width}×${cvs.height}｜geo ${m.geometries} tex ${m.textures}`;
+}
+window.__gpuInfo = gpuInfo;
+let lossNote = '', lossCount = 0;
+const NEXT_TIER = { full: 'lite', lite: 'min', min: 'min' };
 cvs.addEventListener('webglcontextlost', e => {
   e.preventDefault();   // allow restore
+  lossCount++;
+  lossNote = `webglcontextlost #${lossCount}，${(performance.now() / 1000).toFixed(1)} 秒時，${window.__phase || ''}/${window.__view || ''}${document.hidden ? '/背景' : ''}\n${gpuInfo()}`;
+  console.warn('WebGL context lost:', lossNote);
+  try { localStorage.setItem(TIER_KEY, JSON.stringify({ tier: NEXT_TIER[TIER], t: Date.now() })); } catch (err) {}   // next start: lighter
   glLost = true; current = null; saveStrokes();
   $('#gllostMsg').textContent = '畫面重新整理中…'; $('#gllostBtns').classList.add('hidden'); $('#gllost').classList.remove('hidden');
   clearTimeout(glLostTimer);
   glLostTimer = setTimeout(() => {
     $('#gllostMsg').textContent = '這台手機的 3D 畫面暫時停止了。你的簽名已保留。';
-    $('#gllostWhy').textContent = `原因：瀏覽器收回了 3D 繪圖（webglcontextlost，${Math.round(performance.now() / 1000)} 秒時）`;
+    $('#gllostWhy').textContent = `原因：瀏覽器收回了 3D 繪圖（${lossNote}）`;
     $('#gllostBtns').classList.remove('hidden');
   }, 2500);
 }, false);
+function applyTier(t) {   // step down in place (after a restore): smaller buffer, no shadows
+  TIER = t; TQ = TIERS[t]; window.__tier = t;
+  renderer.shadowMap.enabled = TQ.shadows; sun.castShadow = TQ.shadows; ground.visible = TQ.shadows; fakeShadow.visible = !TQ.shadows;
+  paper.castShadow = paper.receiveShadow = inkMesh.receiveShadow = TQ.shadows;
+  scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+}
 cvs.addEventListener('webglcontextrestored', () => {
   glLost = false; clearTimeout(glLostTimer);
+  applyTier(NEXT_TIER[TIER]);
+  wake(10);
   for (const t of [paperTex, inkTex, dotTex]) t.needsUpdate = true;
   lastSize = ''; resize(); inkDirty = true;
   $('#gllost').classList.add('hidden');
@@ -6181,7 +6244,7 @@ try {
 } catch (e) {}
 
 // ---------- boot ----------
-washi(paperCv.getContext('2d'), CW, CH); paperTex.needsUpdate = true;
+washi(paperCv.getContext('2d'), CW, CH); paperChanged();
 kaiReady.then(() => { drawPaperBase(paperBase.getContext('2d')); resetPaper(); window.__paperReady = true; setTimeout(() => { if (!locked) setFocus(true); }, 900); });   // show the contract, then the camera moves in on the 乙方 field
 window.__view = 'full';
 drawInk();
@@ -6204,6 +6267,7 @@ window.__game = {
   strokeCount: () => strokes.length,
   prefetch: () => prefetch(strokes, 0),   // what a finished stroke triggers
   sign,
+  tier: () => TIER,
   glInfo: () => ({ ...renderer.info.memory, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, programs: renderer.info.programs ? renderer.info.programs.length : null, pr: renderer.getPixelRatio() }),
 };
 
