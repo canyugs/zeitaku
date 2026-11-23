@@ -113,12 +113,14 @@ body.locked .view-btn,body.done .view-btn{opacity:0;pointer-events:none}
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 56px);transform:translateX(-50%);z-index:60;max-width:min(88vw,420px);padding:10px 16px;border-radius:12px;background:#efe6d2;color:#211d19;font-size:15px;line-height:1.5;box-shadow:0 10px 30px #000a;text-align:center}
 .toast.hidden{display:none}
 .gllost .nogl-why{font-size:11px;color:#8c7f6c;word-break:break-all;white-space:pre-line;font-family:system-ui,sans-serif;max-width:420px;margin:0}
+/* r14: the camera always shows the whole sheet; no zoom toggle */
+#viewBtn{display:none !important}
 
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
 </head>
 <body>
-<div id="stage" aria-label="契約書（請在框內手寫姓名）"></div>
+<div id="stage" aria-label="契約書（整張紙都可以簽名）"></div>
 <button class="btn view-btn" id="viewBtn" type="button">看契約全文</button>
 
 
@@ -5108,9 +5110,9 @@ const PAD_UNITS = 200;
 // input limits (both apps): beyond these a signature is scribbling; the cap keeps matching and redraws bounded
 const MAX_STROKES = 120, MAX_POINTS = 1200, MAX_MATCH_POINTS = 12000, MAX_MATCH_ATOMS = 120;
 // add a point to the stroke being written (clamped to the box, capped in count); returns false once the stroke is full
-function addPoint(st, p, h) {
+function addPoint(st, p, h, w = PAD_UNITS) {   // w: pad width in pad units (a landscape sheet is wider than PAD_UNITS)
   if (st.length >= MAX_POINTS) return false;
-  st.push({ x: clamp(p.x, 0, PAD_UNITS), y: clamp(p.y, 0, h) });
+  st.push({ x: clamp(p.x, 0, w), y: clamp(p.y, 0, h) });
   return true;
 }
 // runMatch with an overall deadline, so a dead network ends in a message instead of a spinner forever
@@ -5414,20 +5416,26 @@ function cellTransform(cell) {
   return { k, tx: cell.x - (0.08 / 0.84) * cell.s, ty: cell.y - (0.08 / 0.84) * cell.s };
 }
 function medLen(m) { let L = 0; for (let i = 2; i < m.length; i += 2) L += Math.hypot(m[i] - m[i - 2], m[i + 1] - m[i - 1]); return L; }
+// The new name goes where the signature was: along the signature's own direction (top-to-bottom if it is taller than
+// wide, else left-to-right), centred on its ink, each character in its matched cell, kept on the sheet (PU_W × PU_H).
 function layoutNewName(res, PU_W, PU_H) {
-  const vertical = PU_H > PU_W;
-  let nextY = -Infinity;
+  const all = res.atoms.flatMap(a => a.pts);
+  const x0 = Math.min(...all.map(p => p.x)), x1 = Math.max(...all.map(p => p.x));
+  const y0 = Math.min(...all.map(p => p.y)), y1 = Math.max(...all.map(p => p.y));
+  const vertical = res.chars.length > 1 ? y1 - y0 >= x1 - x0 : PU_H > PU_W;
+  const n = res.chars.length, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  let next = -Infinity;
   return res.chars.map(c => {
     if (vertical) {
-      const s = Math.min(c.cell.s, PU_W * 1.08);
-      const cy = c.cell.y + c.cell.s / 2;
-      const y = clamp(Math.max(cy - s / 2, nextY), 0, PU_H - s);
-      nextY = y + s * 0.98;
-      return cellTransform({ x: (PU_W - s) / 2, y, s });
+      const s = Math.min(c.cell.s, PU_W * 0.96, PU_H / n * 1.02);
+      const y = clamp(Math.max(c.cell.y + c.cell.s / 2 - s / 2, next), 0, PU_H - s);
+      next = y + s * 0.98;
+      return cellTransform({ x: clamp(cx - s / 2, 0, PU_W - s), y, s });
     }
-    const s = Math.min(c.cell.s, PU_H * 1.02);
-    const cx = c.cell.x + c.cell.s / 2;
-    return cellTransform({ x: clamp(cx - s / 2, 0, PU_W - s), y: (PU_H - s) / 2, s });
+    const s = Math.min(c.cell.s, PU_H * 0.96, PU_W / n * 1.02);
+    const x = clamp(Math.max(c.cell.x + c.cell.s / 2 - s / 2, next), 0, PU_W - s);
+    next = x + s * 0.98;
+    return cellTransform({ x, y: clamp(cy - s / 2, 0, PU_H - s), s });
   });
 }
 
@@ -5526,7 +5534,7 @@ return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX
 const __m_3d_app3d_js = (function () {
 // 契約書 3D — one sheet of washi paper (original code). Uses global THREE (vendor/three.min.js, bundled locally).
 const {
-  initCore, sleep, clamp, KAI, C_TITLE, washi, vcol, verdict, inkFrame, drawSeal,
+  initCore, sleep, clamp, KAI, C_TITLE, washi, vcol, verdict, drawSeal,
   runMatchSafe, addPoint, MAX_STROKES, prefetch, layoutNewName, medLen, nameFigures, shareResult,
 } = __m_shared_core_js;
 const T = window.THREE;
@@ -5559,17 +5567,46 @@ let charData = null;
 charsReady.then(d => (charData = d));
 
 // ---------- paper geometry (paper canvas px ↔ paper local units) ----------
-const CW = 1400, CH = 1000;                  // paper texture size (landscape card)
-const PW = 3, PH = PW * CH / CW;             // paper size in world units
-const PAD = { x: 45, y: 235, w: 290, h: 675 };  // signing space (canvas px), as wide as the left margin allows; written top-to-bottom
-const PU_W = 200, PU_H = PU_W * PAD.h / PAD.w;  // writing box in "pad units" (≈ the scale the 2D matcher saw per character)
-const VERTICAL = PU_H > PU_W;
-const S = PAD.w / PU_W;                      // canvas px per pad unit
-const INK_K = 2;                             // ink canvas px per pad unit
+// r14: the sheet takes the screen's shape (portrait on a phone held upright, landscape when the width is the long side),
+// fills the view with a small even margin, and the whole sheet is the signing field.
+// Paper canvas: long side 1400 px; world: long side 3 units; pad units: the short side is 200 (≈ the scale the matcher saw).
+const PAPER_LONG = 1400, WORLD_LONG = 3, PAD_SHORT = 200;
 const BRUSH = 7.3;                           // brush width in pad units
+let CW = 1400, CH = 1000, PW = 3, PH = 3 * CH / CW;   // paper canvas px / world units
+let PU_W = 200, PU_H = 200, S = 1;           // sheet in pad units; canvas px per pad unit
+let INK_K = 2;                               // ink canvas px per pad unit (≈ screen px per pad unit, capped per tier)
+let BRUSH_W = 0.02;                          // brush width in world units
+let SEAL = { x: 100, y: 900, r: 72 };        // lower-left corner of the sheet
 const pxToLocal = (px, py) => [(px / CW - 0.5) * PW, (0.5 - py / CH) * PH];
-const padToLocal = (u, v) => pxToLocal(PAD.x + u * S, PAD.y + v * S);
-const BRUSH_W = BRUSH * S / CW * PW;         // brush width in world units
+const padToLocal = (u, v) => pxToLocal(u * S, v * S);
+// screen margin around the sheet, and the room the controls take (bottom bar, or a side column on a phone held sideways)
+const screenPad = () => clamp(Math.round(Math.min(innerWidth, innerHeight) * 0.045), 12, 24);
+const sideBar = () => { const b = $('#bar'); return b && !b.classList.contains('hidden') && b.offsetHeight > innerHeight * 0.6 ? b.offsetWidth : 0; };
+const barH = () => { const b = $('#bar'); return (b && !b.classList.contains('hidden') && b.offsetHeight) || 110; };
+function writeFit() {
+  const P = screenPad(), sb = sideBar();
+  return sb ? { top: P, bottom: P, left: P, right: sb + P * 0.5 } : { top: P, bottom: barH() + P * 0.3, left: P, right: P };
+}
+function paperDims() {   // sheet size for the current screen (does not touch the scene)
+  const f = writeFit();
+  const aw = Math.max(120, innerWidth - f.left - f.right), ah = Math.max(120, innerHeight - f.top - f.bottom);
+  const a = clamp(aw / ah, 0.3, 3.2);
+  const cw = a >= 1 ? PAPER_LONG : Math.round(PAPER_LONG * a), ch = a >= 1 ? Math.round(PAPER_LONG / a) : PAPER_LONG;
+  const s = Math.min(cw, ch) / PAD_SHORT;
+  const pr = Math.min(window.devicePixelRatio || 1, TQ.pr);
+  const ink = clamp(Math.min(aw, ah) / PAD_SHORT * pr, 1.5, TQ.paperW < PAPER_LONG ? 2.5 : 4);
+  return { a, cw, ch, s, ink };
+}
+function setDims(d) {
+  CW = d.cw; CH = d.ch; S = d.s; INK_K = d.ink;
+  PW = CW >= CH ? WORLD_LONG : WORLD_LONG * CW / CH; PH = PW * CH / CW;
+  PU_W = CW / S; PU_H = CH / S;
+  BRUSH_W = BRUSH * PW / PU_W;
+  const sh = Math.min(CW, CH), r = sh * 0.075;
+  SEAL = { x: sh * 0.05 + r * 1.2, y: CH - sh * 0.05 - r * 1.2, r };
+}
+let paperAspect = 0;
+setDims(paperDims()); paperAspect = CW / CH;
 
 // contract wording, 民國 date and the Kai font come from shared/core.js
 
@@ -5623,14 +5660,13 @@ const buzz = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (
 $('#soundBtn').onclick = () => { soundOn = !soundOn; $('#soundBtn').setAttribute('aria-label', `音效：${soundOn ? '開' : '關'}`); $('#soundBtn').setAttribute('aria-pressed', soundOn); };
 
 // ---------- textures ----------
-// washi(), vcol(), inkFrame() come from shared/core.js
-const SEAL = { x: 450, y: 830, r: 72 };   // just right of the field's lower corner
+// washi(), vcol() come from shared/core.js
 function drawPaperBase(c) {
   washi(c, CW, CH);
-  // only the title and the signing field: a clear 契約書 at the right edge, the field framed in ink at the left
-  c.fillStyle = '#211d19';
-  vcol(c, C_TITLE.join(''), 1262, 120, 84, 96);
-  inkFrame(c, PAD.x, PAD.y, PAD.w, PAD.h, 1);
+  // only a small, faded 契約書 at the top-right corner; the rest of the sheet is for the signature
+  const sh = Math.min(CW, CH), fs = sh * 0.05;
+  c.fillStyle = 'rgba(33,29,25,.5)';
+  vcol(c, C_TITLE.join(''), CW - sh * 0.065, sh * 0.085, fs, fs * 1.14);
 }
 // drawSeal() comes from shared/core.js
 
@@ -5732,15 +5768,18 @@ fakeShadow.visible = !TQ.shadows;
 paperGroup.add(fakeShadow);
 
 // the paper is laid out at 1400x1000; lite tiers upload a 1024x731 copy (3.0 MB + mips instead of 5.6 MB + mips)
-const paperTexCv = TQ.paperW < CW ? Object.assign(document.createElement('canvas'), { width: TQ.paperW, height: Math.round(TQ.paperW * CH / CW) }) : paperCv;
-const paperTex = new T.CanvasTexture(paperTexCv);
-paperTex.colorSpace = T.SRGBColorSpace; paperTex.anisotropy = TQ.shadows ? 4 : 2;
+// the paper is laid out with a 1400 px long side; lite tiers upload a smaller copy (TQ.paperW long side)
+const paperTexCv = TQ.paperW < PAPER_LONG ? document.createElement('canvas') : paperCv;
+const sizePaperTexCv = () => { if (paperTexCv !== paperCv) { const k = TQ.paperW / Math.max(CW, CH); paperTexCv.width = Math.round(CW * k); paperTexCv.height = Math.round(CH * k); } };
+sizePaperTexCv();
+const makePaperTex = () => { const t = new T.CanvasTexture(paperTexCv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = TQ.shadows ? 4 : 2; return t; };
+let paperTex = makePaperTex();
 function paperChanged() {
   if (paperTexCv !== paperCv) paperTexCv.getContext('2d').drawImage(paperCv, 0, 0, paperTexCv.width, paperTexCv.height);
   paperTex.needsUpdate = true; wake();
 }
-const [SEG_X, SEG_Y] = TQ.seg;
-const paperGeo = new T.PlaneGeometry(PW, PH, SEG_X, SEG_Y);
+const segs = () => (CW >= CH ? TQ.seg : [TQ.seg[1], TQ.seg[0]]);
+let paperGeo = new T.PlaneGeometry(PW, PH, ...segs());
 const paperMat = new T.MeshStandardMaterial({ map: paperTex, roughness: 0.96, metalness: 0, side: T.FrontSide });
 const paper = new T.Mesh(paperGeo, paperMat);
 paper.castShadow = TQ.shadows; paper.receiveShadow = TQ.shadows;
@@ -5748,19 +5787,54 @@ paperGroup.add(paper);
 const paperBack = new T.Mesh(paperGeo, new T.MeshStandardMaterial({ color: 0xeee3cf, roughness: 1, side: T.BackSide }));
 paperGroup.add(paperBack);
 
-const inkTex = new T.CanvasTexture(inkCv);
-inkTex.colorSpace = T.SRGBColorSpace; inkTex.anisotropy = TQ.shadows ? 4 : 1;
-// re-uploaded on every ink change while writing: no mipmap chain to rebuild each time (it is viewed at ~1:1 anyway)
-inkTex.generateMipmaps = false; inkTex.minFilter = 1006;   // THREE.LinearFilter (not in the slim bundle)
-const [ix0, iy0] = padToLocal(0, 0), [ix1, iy1] = padToLocal(PU_W, PU_H);
-const inkGeo = new T.PlaneGeometry(ix1 - ix0, iy0 - iy1, 24, 9);
-const inkMesh = new T.Mesh(inkGeo, new T.MeshStandardMaterial({ map: inkTex, transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
-inkMesh.position.set((ix0 + ix1) / 2, (iy0 + iy1) / 2, 0);
+const makeInkTex = () => {
+  const t = new T.CanvasTexture(inkCv);
+  t.colorSpace = T.SRGBColorSpace; t.anisotropy = TQ.shadows ? 4 : 1;
+  // re-uploaded on every ink change while writing: no mipmap chain to rebuild each time (it is viewed at ~1:1 anyway)
+  t.generateMipmaps = false; t.minFilter = 1006;   // THREE.LinearFilter (not in the slim bundle)
+  return t;
+};
+let inkTex = makeInkTex();
+// the ink layer covers the whole sheet (the whole sheet is the signing field)
+const inkSegs = segs;   // same grid as the paper, so both bend identically (a head-on camera gives no slope for polygonOffset)
+let inkGeo = new T.PlaneGeometry(PW, PH, ...inkSegs());
+const inkMesh = new T.Mesh(inkGeo, new T.MeshStandardMaterial({ map: inkTex, transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -8 }));
+inkMesh.position.z = 0.002;   // a hair above the paper
 inkMesh.receiveShadow = TQ.shadows;
 paperGroup.add(inkMesh);
-const paperRest = paperGeo.attributes.position.array.slice();
-const inkRest = inkGeo.attributes.position.array.slice();
+let paperRest = paperGeo.attributes.position.array.slice();
+let inkRest = inkGeo.attributes.position.array.slice();
 paperGeo.boundingSphere = null; paperGeo.computeBoundingSphere(); paperGeo.boundingSphere.radius *= 1.1;
+fakeShadow.scale.set(PW * 1.3, PH * 1.3, 1);
+
+// screen turned / resized: give the sheet the new shape. Textures and geometry are rebuilt at the new size (old ones
+// disposed, so GPU memory stays flat); strokes already written are scaled to fit and kept centred.
+function relayout(d) {
+  const w0 = PU_W, h0 = PU_H;
+  setDims(d); paperAspect = CW / CH;
+  if (strokes.length) {
+    const k = Math.min(1, PU_W / w0, PU_H / h0), dx = PU_W / 2 - w0 / 2 * k, dy = PU_H / 2 - h0 / 2 * k;
+    strokes = strokes.map(st => st.map(p => ({ x: p.x * k + dx, y: p.y * k + dy })));
+  }
+  for (const cv of [paperBase, paperCv]) { cv.width = CW; cv.height = CH; }
+  inkCv.width = Math.round(PU_W * INK_K); inkCv.height = Math.round(PU_H * INK_K);
+  sizePaperTexCv();
+  paperTex.dispose(); paperTex = makePaperTex(); paperMat.map = paperTex; paperMat.needsUpdate = true;
+  inkTex.dispose(); inkTex = makeInkTex(); inkMesh.material.map = inkTex; inkMesh.material.needsUpdate = true;
+  paperGeo.dispose(); paperGeo = new T.PlaneGeometry(PW, PH, ...segs()); paper.geometry = paperBack.geometry = paperGeo;
+  inkGeo.dispose(); inkGeo = new T.PlaneGeometry(PW, PH, ...inkSegs()); inkMesh.geometry = inkGeo;
+  paperRest = paperGeo.attributes.position.array.slice(); inkRest = inkGeo.attributes.position.array.slice();
+  paperGeo.boundingSphere = null; paperGeo.computeBoundingSphere(); paperGeo.boundingSphere.radius *= 1.1;
+  fakeShadow.scale.set(PW * 1.3, PH * 1.3, 1);
+  washi(paperCv.getContext('2d'), CW, CH);
+  if (window.__paperReady) { drawPaperBase(paperBase.getContext('2d')); resetPaper(); } else paperChanged();
+  inkDirty = true; wake(4);
+  window.__relayouts = (window.__relayouts || 0) + 1;
+}
+function maybeRelayout() {   // only on a real change of shape (not the Android URL bar sliding a little)
+  const d = paperDims(), a = d.cw / d.ch;
+  if ((a >= 1) !== (paperAspect >= 1) || Math.abs(Math.log(a / paperAspect)) > 0.08) relayout(d);
+}
 
 // paper shape: gentle bow + idle breathing + flutter/jolt impulses
 let flutter = 0, jolt = 0, joltAt = [0, 0], lift = 0, time = 0;
@@ -5780,14 +5854,9 @@ function deform(geo, rest, ox, oy) {
 }
 
 // ---------- layout / camera fit ----------
-// focusK 0 = whole contract, 1 = camera framed on the signing field (it fills most of the screen); tweened, never jumps
-const FIT_WRITE = { top: 24, bottom: 140, left: 0, right: 0 };
-// controls side-mounted (phone in landscape, see style3d.css): keep the right edge clear instead of the bottom
-const sideBar = () => { const b = $('#bar'); return b && b.offsetHeight > innerHeight * 0.6 ? b.offsetWidth : 0; };
-const writeFit = () => (sideBar() ? { top: 14, bottom: 22, left: 0, right: sideBar() + 8 } : { ...FIT_WRITE });
-const FIT_FOCUS = { top: 58, bottom: 128, left: 10, right: 10 };
-const R_FOCUS = { x0: PAD.x - 22, x1: PAD.x + PAD.w + 22, y0: 96, y1: PAD.y + PAD.h + 22 };
-const ROT_FULL = [-0.3, 0.04, 0.02], ROT_FOCUS = [-0.1, 0.01, 0.0];   // the paper also turns towards the camera while signing
+// r14: the camera always frames the whole sheet, nearly head-on, with the screen margin around it (writeFit()).
+// focusK / setFocus() are kept only as the 'focus' state the tests and the boot sequence report; they no longer zoom.
+const ROT_FULL = [0, 0, 0], ROT_FOCUS = [0, 0, 0];   // head-on: straight edges, the sheet matches the screen margin
 let fit = writeFit(), fitCur = null;
 let showingResult = false, focusK = 0, focusTarget = 0, focusTok = 0, wholeK = 0;   // wholeK: portrait only, 1 = the whole card in view
 const wc = new T.Vector3();
@@ -5796,7 +5865,7 @@ function fitFor(R, fit, m) {
   const availH = Math.max(120, h - fit.top - fit.bottom), availW = Math.max(160, w - fit.left - fit.right);
   const tan = Math.tan(T.MathUtils.degToRad(camera.fov / 2));
   const rw = (R.x1 - R.x0) / CW * PW, rh = (R.y1 - R.y0) / CH * PH;
-  const ph = rh * Math.cos(paperGroup.rotation.x) * 1.06, pw = rw * 1.05;
+  const ph = rh * Math.cos(paperGroup.rotation.x) * 1.035, pw = rw * 1.03;   // a little room for the paper's bow
   const d = Math.max(ph / (2 * tan * (availH / h) * m), pw / (2 * tan * (w / h) * (availW / w) * m));
   const visH = 2 * d * tan, visW = visH * w / h;
   const [cx, cy] = pxToLocal((R.x0 + R.x1) / 2, (R.y0 + R.y1) / 2);
@@ -5804,29 +5873,20 @@ function fitFor(R, fit, m) {
   return { d: d + wc.z, x: wc.x + (fit.right - fit.left) / 2 / w * visW, y: wc.y - (fit.bottom - fit.top) / 2 / h * visH };
 }
 function targetFit() {
-  const portrait = innerWidth / innerHeight < 0.9;
-  let full = fitFor(portrait && !showingResult ? { x0: 70, x1: 650, y0: 40, y1: CH - 40 } : { x0: 0, x1: CW, y0: 0, y1: CH }, fit, portrait && !showingResult ? 0.98 : 0.94);
-  if (portrait && !showingResult && wholeK > 0) {
-    const w = fitFor({ x0: 0, x1: CW, y0: 0, y1: CH }, fit, 0.94), k = wholeK;
-    full = { d: full.d + (w.d - full.d) * k, x: full.x + (w.x - full.x) * k, y: full.y + (w.y - full.y) * k };
-  }
-  if (focusK <= 0) return full;
-  const sb = sideBar();
-  const f = fitFor(R_FOCUS, sb ? { top: 8, bottom: 16, left: 64, right: sb + 6 } : { ...FIT_FOCUS, bottom: ($('#bar').offsetHeight || 120) + 6 }, 0.99), k = focusK;
-  return { d: full.d + (f.d - full.d) * k, x: full.x + (f.x - full.x) * k, y: full.y + (f.y - full.y) * k };
+  return fitFor({ x0: 0, x1: CW, y0: 0, y1: CH }, fit, showingResult ? 0.96 : 1);
 }
 function setFocus(on, ms = 1100) {
   focusTarget = on ? 1 : 0;
   const tok = ++focusTok, from = focusK, to = focusTarget;
   window.__view = on ? 'zooming-in' : 'zooming-out';
-  $('#viewBtn').textContent = on ? '看契約全文' : '回到簽名欄';
   if (from === to) { window.__view = on ? 'focus' : 'full'; return Promise.resolve(); }
   return tween(ms * Math.abs(to - from), k => { if (tok === focusTok) focusK = from + (to - from) * easeInOut(k); })
     .then(() => { if (tok === focusTok) window.__view = on ? 'focus' : 'full'; });
 }
 let lastSize = '';
 function resize() {
-  if (!showingResult && typeof sideBar === 'function') fit = writeFit();
+  if (!showingResult) fit = writeFit();
+  if (window.__paperReady && !locked) maybeRelayout();
   // Android fires resize whenever the URL bar slides; only reallocate the drawing buffer when it really changes
   const pr = pixelRatio(), key = `${innerWidth}x${innerHeight}@${pr}`;
   if (key !== lastSize) { lastSize = key; renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false); }
@@ -5913,8 +5973,7 @@ function hitPad(e) {
   ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObject(paper, false)[0];
   if (!hit || !hit.uv) return null;
-  const px = hit.uv.x * CW, py = (1 - hit.uv.y) * CH;
-  return { x: (px - PAD.x) / S, y: (py - PAD.y) / S };
+  return { x: hit.uv.x * PU_W, y: (1 - hit.uv.y) * PU_H };
 }
 const inside = (p, m = 0) => p && p.x > -m && p.y > -m && p.x < PU_W + m && p.y < PU_H + m;
 const cl = p => ({ x: clamp(p.x, 0, PU_W), y: clamp(p.y, 0, PU_H) });
@@ -5933,7 +5992,7 @@ cvs.addEventListener('pointerdown', e => {
 cvs.addEventListener('pointermove', e => {
   if (!current || e.pointerId !== pid) return;
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
-  for (const ev of evs.length ? evs : [e]) { const p = hitPad(ev); if (p && !addPoint(current, p, PU_H)) break; }
+  for (const ev of evs.length ? evs : [e]) { const p = hitPad(ev); if (p && !addPoint(current, p, PU_H, PU_W)) break; }
   inkTail = true;
 });
 const endStroke = e => {
@@ -6252,6 +6311,7 @@ $('#againBtn').onclick = () => {
   document.body.classList.remove('locked', 'busy', 'done');
   $('#result').classList.add('hidden'); $('#bar').classList.remove('hidden');
   fit = writeFit(); showingResult = false;
+  maybeRelayout();
   flutter = 0.03;
   setTimeout(() => { if (!locked) setFocus(true); }, 500);
 };
@@ -6273,8 +6333,7 @@ function loop(now) {
   paperGroup.rotation.set(...ROT_FULL.map((r, i) => r + (ROT_FOCUS[i] - r) * focusK));
   const tf = targetFit(), a = 1 - Math.exp(-dt * (tweens.size ? 14 : 5));
   fitCur.d += (tf.d - fitCur.d) * a; fitCur.x += (tf.x - fitCur.x) * a; fitCur.y += (tf.y - fitCur.y) * a;
-  const off = 1 - 0.75 * focusK;   // slight 3/4 view on the whole contract, nearly head-on while signing
-  camera.position.set(fitCur.x + 0.15 * off, fitCur.y - 0.12 * off, fitCur.d);
+  camera.position.set(fitCur.x, fitCur.y, fitCur.d);   // head-on: the sheet fills the screen evenly
   camera.lookAt(fitCur.x, fitCur.y, 0);
   const camMoving = Math.abs(tf.d - fitCur.d) + Math.abs(tf.x - fitCur.x) + Math.abs(tf.y - fitCur.y) > 2e-4;
   const pAlive = updateParticles(dt);
@@ -6283,7 +6342,7 @@ function loop(now) {
   if (wakeN > 0) wakeN--;
   window.__frames = (window.__frames || 0) + 1;
   deform(paperGeo, paperRest, 0, 0);
-  deform(inkGeo, inkRest, inkMesh.position.x, inkMesh.position.y);
+  deform(inkGeo, inkRest, 0, 0);
   for (const st of strips) updateStrip(st, now, dt);
   for (let i = strips.length - 1; i >= 0; i--) if (strips[i].done) strips.splice(i, 1);
   if (glLost) return;

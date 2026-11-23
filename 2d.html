@@ -218,6 +218,20 @@ body.done .bar{visibility:hidden}
 .signer-box::before,.signer-box::after{display:none}
 .big-frame{position:absolute;pointer-events:none}
 
+/* ---------- r14: the sheet fills the screen with a small even margin; it is portrait or landscape like the screen,
+   and the whole sheet is the signing field (no framed box, no enlarged signing view) ---------- */
+:root{--pp:clamp(10px, 3.6vmin, 22px)}
+.stage{position:fixed;left:calc(var(--pp) + env(safe-area-inset-left,0px));right:calc(var(--pp) + env(safe-area-inset-right,0px));
+  top:calc(var(--pp) + var(--safe-t));bottom:calc(var(--bar) + var(--pp) * .4);height:auto;display:block}
+.card{width:100% !important;height:100%}
+.card-in{display:block;padding:0}
+.c-title{position:absolute;top:calc(var(--pp) + 30px);right:var(--pp);margin:0 !important;font-size:clamp(13px, 2.3vmin, 19px);
+  letter-spacing:.14em;opacity:.55;pointer-events:none}
+.c-party-b{position:absolute;inset:0;width:auto !important;min-width:0;display:block;padding:0}
+.pad-wrap{position:absolute;inset:0;margin:0;width:auto;height:auto;border:0}
+.pad-wrap::before,.pad-wrap::after{display:none}
+.signer{display:none !important}
+
 </style>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjkiIGZpbGw9IiNmZmY0ZWEiIHN0cm9rZT0iI2I4MzIxZiIgc3Ryb2tlLXdpZHRoPSI1Ii8+PHRleHQgeD0iMzIiIHk9IjQzIiBmb250LXNpemU9IjMwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjgzMjFmIiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiPuaUuTwvdGV4dD48L3N2Zz4K" type="image/svg+xml">
 </head>
@@ -228,7 +242,7 @@ body.done .bar{visibility:hidden}
       <h1 class="c-title"></h1>
       <div class="c-party-b">
         <div class="pad-wrap" id="padWrap">
-          <canvas id="pad" aria-label="簽名欄（點一下放大簽名）"></canvas>
+          <canvas id="pad" aria-label="簽名欄（整張紙都可以簽）"></canvas>
           <svg id="fx" class="fx" aria-hidden="true"></svg>
         </div>
       </div>
@@ -1394,9 +1408,9 @@ const PAD_UNITS = 200;
 // input limits (both apps): beyond these a signature is scribbling; the cap keeps matching and redraws bounded
 const MAX_STROKES = 120, MAX_POINTS = 1200, MAX_MATCH_POINTS = 12000, MAX_MATCH_ATOMS = 120;
 // add a point to the stroke being written (clamped to the box, capped in count); returns false once the stroke is full
-function addPoint(st, p, h) {
+function addPoint(st, p, h, w = PAD_UNITS) {   // w: pad width in pad units (a landscape sheet is wider than PAD_UNITS)
   if (st.length >= MAX_POINTS) return false;
-  st.push({ x: clamp(p.x, 0, PAD_UNITS), y: clamp(p.y, 0, h) });
+  st.push({ x: clamp(p.x, 0, w), y: clamp(p.y, 0, h) });
   return true;
 }
 // runMatch with an overall deadline, so a dead network ends in a message instead of a spinner forever
@@ -1700,20 +1714,26 @@ function cellTransform(cell) {
   return { k, tx: cell.x - (0.08 / 0.84) * cell.s, ty: cell.y - (0.08 / 0.84) * cell.s };
 }
 function medLen(m) { let L = 0; for (let i = 2; i < m.length; i += 2) L += Math.hypot(m[i] - m[i - 2], m[i + 1] - m[i - 1]); return L; }
+// The new name goes where the signature was: along the signature's own direction (top-to-bottom if it is taller than
+// wide, else left-to-right), centred on its ink, each character in its matched cell, kept on the sheet (PU_W × PU_H).
 function layoutNewName(res, PU_W, PU_H) {
-  const vertical = PU_H > PU_W;
-  let nextY = -Infinity;
+  const all = res.atoms.flatMap(a => a.pts);
+  const x0 = Math.min(...all.map(p => p.x)), x1 = Math.max(...all.map(p => p.x));
+  const y0 = Math.min(...all.map(p => p.y)), y1 = Math.max(...all.map(p => p.y));
+  const vertical = res.chars.length > 1 ? y1 - y0 >= x1 - x0 : PU_H > PU_W;
+  const n = res.chars.length, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  let next = -Infinity;
   return res.chars.map(c => {
     if (vertical) {
-      const s = Math.min(c.cell.s, PU_W * 1.08);
-      const cy = c.cell.y + c.cell.s / 2;
-      const y = clamp(Math.max(cy - s / 2, nextY), 0, PU_H - s);
-      nextY = y + s * 0.98;
-      return cellTransform({ x: (PU_W - s) / 2, y, s });
+      const s = Math.min(c.cell.s, PU_W * 0.96, PU_H / n * 1.02);
+      const y = clamp(Math.max(c.cell.y + c.cell.s / 2 - s / 2, next), 0, PU_H - s);
+      next = y + s * 0.98;
+      return cellTransform({ x: clamp(cx - s / 2, 0, PU_W - s), y, s });
     }
-    const s = Math.min(c.cell.s, PU_H * 1.02);
-    const cx = c.cell.x + c.cell.s / 2;
-    return cellTransform({ x: clamp(cx - s / 2, 0, PU_W - s), y: (PU_H - s) / 2, s });
+    const s = Math.min(c.cell.s, PU_H * 0.96, PU_W / n * 1.02);
+    const x = clamp(Math.max(c.cell.x + c.cell.s / 2 - s / 2, next), 0, PU_W - s);
+    next = x + s * 0.98;
+    return cellTransform({ x, y: clamp(cy - s / 2, 0, PU_H - s), s });
   });
 }
 
@@ -1810,7 +1830,7 @@ async function shareResult(lastResult) {
 return { sleep, clamp, PAD_UNITS, MAX_STROKES, MAX_POINTS, MAX_MATCH_POINTS, MAX_MATCH_ATOMS, addPoint, boundMatchInput, runMatchSafe, initCore, getCharData, KAI, today, zhNum, zhMD, dateZh, C_TITLE, C_BODY, washi, vcol, vtext, scribCol, vscrib, verdictText, verdict, inkFrame, drawSeal, runMatch, prefetch, dataStats, cellTransform, medLen, layoutNewName, splitZhuyin, zhuyinEl, glyphSvg, nameFigures, renderShareImage, shareResult };
 })();
 const __m_app_js = (function () {
-// 契約書 2D — vertical contract, mobile-first (original code).
+// 契約書 2D — the whole sheet is the signing field; it fills the screen (portrait on a phone held upright, landscape when wide). Original code.
 // Presentation only: wording, date, font, matching, name layout, 注音, seal and share image come from shared/core.js (same as 3D).
 const {
   initCore, getCharData, sleep, PAD_UNITS, C_TITLE,
@@ -1823,13 +1843,14 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 
 const { charsReady, kaiReady } = initCore({ base: './' });
 
-// strokes are kept in pad units (box width = PAD_UNITS), exactly what the 3D page feeds the matcher
+// strokes are kept in pad units: the sheet's SHORT side is PAD_UNITS (portrait: 200 wide, landscape: 200 tall), so a
+// name written across the sheet reaches the matcher at the same scale whatever the screen shape (same rule as 3D)
 let strokes = [];
 let current = null;
 let locked = false;
-let W = 0, H = 0, DPR = 1;   // box size in CSS px
-const U = () => PAD_UNITS / (W || 1);          // pad units per CSS px
-const PU_H = () => PAD_UNITS * H / (W || 1);   // box height in pad units
+let W = 0, H = 0, DPR = 1;   // sheet size in CSS px
+const U = () => PAD_UNITS / (Math.min(W, H) || 1);   // pad units per CSS px
+const PU_W = () => W * U(), PU_H = () => H * U();   // sheet size in pad units
 const BRUSH = 8.2;                              // brush width in pad units
 let lastResult = null;
 
@@ -1859,12 +1880,10 @@ async function stampSeal() {
   const cv = document.createElement('canvas'); cv.width = cv.height = 240;
   drawSeal(cv.getContext('2d'), 120, 120, 104);
   img.src = cv.toDataURL('image/png');
-  // just right of the framed field's lower corner (as on the 3D paper)
-  const cr = card.getBoundingClientRect(), k = cr.width / card.offsetWidth;
-  const ar = wrap.getBoundingClientRect();
+  // lower-left corner of the sheet (as on the 3D paper)
   const sz = img.offsetWidth;
-  img.style.left = `${(ar.right - cr.left) / k + sz * 0.12}px`;
-  img.style.top = `${(ar.bottom - cr.top) / k - sz * 1.05}px`;
+  img.style.left = `${sz * 0.3}px`;
+  img.style.top = `${card.offsetHeight - sz * 1.3}px`;
   img.classList.remove('on'); void img.offsetWidth; img.classList.add('on');
   try { navigator.vibrate && navigator.vibrate(18); } catch (e) {}
   await sleep(450);
@@ -1874,9 +1893,16 @@ async function stampSeal() {
 function resize() {
   paintPaper();
   DPR = Math.min(window.devicePixelRatio || 1, 3);
+  const w0 = PU_W(), h0 = PU_H();
   W = pad.offsetWidth; H = pad.offsetHeight;
   pad.width = Math.round(W * DPR); pad.height = Math.round(H * DPR);
-  fx.setAttribute('viewBox', `0 0 ${PAD_UNITS} ${PU_H()}`);
+  // the sheet changed shape (rotation, window resize) with ink on it: keep the signature's shape, scaled to fit, centred
+  const w1 = PU_W(), h1 = PU_H();
+  if (strokes.length && w0 && h0 && (Math.abs(w1 - w0) > 0.5 || Math.abs(h1 - h0) > 0.5)) {
+    const k = Math.min(1, w1 / w0, h1 / h0), dx = (w1 - w0 * k) / 2, dy = (h1 - h0 * k) / 2;
+    strokes = strokes.map(st => st.map(p => ({ x: p.x * k + dx, y: p.y * k + dy })));
+  }
+  fx.setAttribute('viewBox', `0 0 ${w1} ${h1}`);
   redraw();
 }
 function redraw() {
@@ -1895,47 +1921,15 @@ function redraw() {
   wrap.classList.toggle('inked', strokes.length > 0 || !!current);
   $('#count').textContent = `${strokes.length} 筆`;
   $('#signBtn').disabled = locked || strokes.length < 2;
-  redrawBig();
 }
-// ---------- focused signing (the signing field enlarged to nearly the whole screen) ----------
-// The big box is only a view: its frame (200 units wide, like the pad) is fitted into the contract pad's 200×PU_H box
-// (uniform scale ≤ 1, centred), so strokes are always stored in contract pad units -> same matcher input as before / as 3D.
-const signer = $('#signer'), sbox = $('#signerBox'), big = $('#bigPad'), bctx = big.getContext('2d');
-let BW = 0, BH = 0, signerOpen = false;
-const LAND = matchMedia('(orientation: landscape) and (max-height: 520px)');
-// The whole pad is shown, fitted and centred in the big box, so its ink frame (the exact pad edge) is always in view.
-function bigFrame() {
-  const puH = PU_H(), kc = Math.min(BW * 0.94 / PAD_UNITS, BH * 0.96 / (puH || 1)) || 1;   // CSS px per pad unit
-  const fx0 = (BW - PAD_UNITS * kc) / 2, fy0 = (BH - puH * kc) / 2;
-  return { s: BW / (PAD_UNITS * kc), ox: -fx0 / kc, oy: -fy0 / kc, kc, fx0, fy0, fw: PAD_UNITS * kc, fh: puH * kc };
-}
-function placeBigFrame() {
-  const f = bigFrame(), el = $('#bigFrame');
-  Object.assign(el.style, { left: `${f.fx0}px`, top: `${f.fy0}px`, width: `${f.fw}px`, height: `${f.fh}px` });
-}
-function sizeSigner() {
-  const vw = window.innerWidth, vh = window.visualViewport ? visualViewport.height : window.innerHeight;
-  if (LAND.matches) {
-    // phone in landscape: label column on the left, controls on the right (CSS), the box takes the full height
-    const cs = getComputedStyle(signer), side = $('#signerTop').offsetWidth || 48;
-    const availH = Math.max(140, vh - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0));
-    const availW = signer.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0) - side - 10;
-    BW = Math.round(Math.min(availW, availH / 1.5)); BH = Math.round(availH);
-  } else {
-    const top = $('#signerTop').offsetHeight || 48;
-    const bar = $('#bar').offsetHeight || 92;
-    const availW = vw - 24, availH = Math.max(160, vh - bar - top - 16 - (parseFloat(getComputedStyle(signer).paddingTop) || 0));
-    // as wide as the screen allows, but no wider than tall/1.7 (a name is written top to bottom)
-    BW = Math.round(Math.min(availW, availH / 1.7, 560)); BH = Math.round(availH);
-  }
-  signer.style.setProperty('--sw', `${BW}px`); signer.style.setProperty('--sh', `${BH}px`);
-  big.width = Math.round(BW * DPR); big.height = Math.round(BH * DPR);
-  placeBigFrame();
-}
+// (r14) no separate enlarged signing view any more: the sheet itself fills the screen and is written on directly.
+// openSigner/closeSigner stay as no-ops for the test hooks.
+let signerOpen = false;
+const openSigner = async () => {}, closeSigner = async () => {};
 // incremental: while a stroke is being written only its new segment is drawn (both canvases keep the transform set by redraw)
 function drawTail(st, from) {
   const seg = st.slice(Math.max(0, from - 1));
-  for (const c of signerOpen ? [ctx, bctx] : [ctx]) {
+  for (const c of [ctx]) {
     c.beginPath();
     seg.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
     if (seg.length === 1) c.lineTo(seg[0].x + 0.1, seg[0].y);
@@ -1944,75 +1938,28 @@ function drawTail(st, from) {
 }
 function inkMeta() {
   wrap.classList.toggle('inked', strokes.length > 0 || !!current);
-  sbox.classList.toggle('inked', strokes.length > 0 || !!current);
   $('#count').textContent = `${strokes.length} 筆`;
   $('#signBtn').disabled = locked || strokes.length < 2;
 }
-function redrawBig() {
-  if (!signerOpen) return;
-  const { s, ox, oy } = bigFrame(), k = DPR * BW / PAD_UNITS / s;
-  bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, big.width, big.height);
-  bctx.setTransform(k, 0, 0, k, -ox * k, -oy * k);
-  bctx.lineCap = 'round'; bctx.lineJoin = 'round'; bctx.strokeStyle = '#1d1a17'; bctx.lineWidth = BRUSH;
-  for (const st of strokes.concat(current ? [current] : [])) {
-    bctx.beginPath();
-    st.forEach((p, i) => (i ? bctx.lineTo(p.x, p.y) : bctx.moveTo(p.x, p.y)));
-    if (st.length === 1) bctx.lineTo(st[0].x + 0.1, st[0].y);
-    bctx.stroke();
-  }
-  sbox.classList.toggle('inked', strokes.length > 0 || !!current);
-}
-// "camera" move between the contract's signing column and the big box (FLIP on the box)
-function flip(open) {
-  // the framed pad inside the big box lands exactly on the contract's framed field
-  const pr = wrap.getBoundingClientRect(), br = sbox.getBoundingClientRect(), f = bigFrame();
-  const sx = pr.width / f.fw, sy = pr.height / f.fh;
-  const t = `translate(${pr.left - br.left - f.fx0 * sx}px,${pr.top - br.top - f.fy0 * sy}px) scale(${sx},${sy})`;
-  const o = { duration: 480, easing: 'cubic-bezier(.3,.8,.25,1)', fill: 'both' };
-  signer.animate([{ backgroundColor: 'rgba(17,14,12,0)' }, { backgroundColor: 'rgba(17,14,12,.88)' }], { ...o, direction: open ? 'normal' : 'reverse' });
-  $('#signerTop').animate([{ opacity: 0 }, { opacity: 1 }], { ...o, direction: open ? 'normal' : 'reverse' });
-  return sbox.animate([{ transformOrigin: '0 0', transform: t }, { transformOrigin: '0 0', transform: 'none' }], { ...o, direction: open ? 'normal' : 'reverse' }).finished;
-}
-async function openSigner() {
-  if (signerOpen || locked) return;
-  signerOpen = true; window.__signer = 'opening';
-  signer.classList.remove('hidden'); document.body.classList.add('signing');
-  sbox.style.backgroundImage = card.style.backgroundImage;
-  sizeSigner(); redrawBig();
-  await flip(true);
-  if (signerOpen) window.__signer = 'open';
-}
-async function closeSigner() {
-  if (!signerOpen) return;
-  window.__signer = 'closing';
-  if (current) end();
-  await flip(false);
-  signerOpen = false; signer.classList.add('hidden'); document.body.classList.remove('signing');
-  window.__signer = 'closed';
-}
-$('#viewBtn').onclick = () => closeSigner();
-pad.addEventListener('pointerdown', e => { if (!locked) { e.preventDefault(); openSigner(); } });
-
-function pos(e) {
-  const r = big.getBoundingClientRect(), k = r.width / BW;   // k ≠ 1 only mid-animation
-  const { s, ox, oy } = bigFrame(), u = PAD_UNITS / BW;
-  return { x: (e.clientX - r.left) / k * u * s + ox, y: (e.clientY - r.top) / k * u * s + oy };
+function pos(e) {   // screen -> pad units (the sheet may be scaled by CSS only while the result shows)
+  const r = pad.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / (r.width || 1) * PU_W(), y: (e.clientY - r.top) / (r.height || 1) * PU_H() };
 }
 let pid = null;
-big.addEventListener('pointerdown', e => {
+pad.addEventListener('pointerdown', e => {
   if (locked || current) return;   // one pen at a time: a second finger is ignored
   e.preventDefault();
   if (strokes.length >= MAX_STROKES) { flashCount(); return; }
-  big.setPointerCapture(e.pointerId);
-  current = []; addPoint(current, pos(e), PU_H()); pid = e.pointerId;
+  pad.setPointerCapture(e.pointerId);
+  current = []; addPoint(current, pos(e), PU_H(), PU_W()); pid = e.pointerId;
   drawTail(current, 0); inkMeta();
 });
-big.addEventListener('pointermove', e => {
+pad.addEventListener('pointermove', e => {
   if (!current || e.pointerId !== pid) return;
   e.preventDefault();
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   const from = current.length;
-  for (const ev of evs.length ? evs : [e]) if (!addPoint(current, pos(ev), PU_H())) break;
+  for (const ev of evs.length ? evs : [e]) if (!addPoint(current, pos(ev), PU_H(), PU_W())) break;
   if (current.length > from) drawTail(current, from);
 });
 const end = e => {
@@ -2020,8 +1967,8 @@ const end = e => {
   if (!locked) strokes.push(current);
   current = null; pid = null; inkMeta(); prefetch(strokes);
 };
-big.addEventListener('pointerup', end);
-big.addEventListener('pointercancel', end);
+pad.addEventListener('pointerup', end);
+pad.addEventListener('pointercancel', end);
 // leaving the tab / rotating mid-stroke: finish the stroke where it is
 document.addEventListener('visibilitychange', () => { if (document.hidden) end(); });
 addEventListener('orientationchange', () => end());
@@ -2034,13 +1981,13 @@ function toast(msg, ms = 4200) {
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), ms);
 }
 // no page scroll / zoom / callout while writing (iOS Safari)
-for (const c of [pad, big]) {
+for (const c of [pad]) {
   for (const t of ['touchstart', 'touchmove']) c.addEventListener(t, e => e.preventDefault(), { passive: false });
   c.addEventListener('contextmenu', e => e.preventDefault());
 }
 document.addEventListener('gesturestart', e => e.preventDefault());
 let rT = 0;
-const onResize = () => { clearTimeout(rT); rT = setTimeout(() => { if (!locked) { resize(); if (signerOpen) { sizeSigner(); redrawBig(); } } else if (lastResult && !$('#result').classList.contains('hidden')) placeResult(); }, 60); };
+const onResize = () => { clearTimeout(rT); rT = setTimeout(() => { if (!locked) resize(); else if (lastResult && !$('#result').classList.contains('hidden')) placeResult(); }, 60); };
 window.addEventListener('resize', onResize);
 window.addEventListener('orientationchange', onResize);
 if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
@@ -2073,7 +2020,7 @@ function brushGlyph(parent, ch, tr) {
 async function sign() {
   if (locked || strokes.length < 2) return;
   locked = true; window.__signs = (window.__signs || 0) + 1;
-  await closeSigner();   // zoom back out to the whole contract first, then the ceremony
+  if (current) end();
   redraw();
   document.body.classList.add('locked');
   const px = strokes.map(s => s.map(p => ({ x: p.x, y: p.y })));
@@ -2085,7 +2032,6 @@ async function sign() {
     window.__phase = 'write'; window.__matchError = String(err);
     locked = false; document.body.classList.remove('locked'); redraw();
     toast('網路不穩，這次沒簽成。簽名還在，請再按一次「簽約」。');
-    setTimeout(openSigner, 300);
     return;
   }
   lastResult = res;
@@ -2129,7 +2075,7 @@ async function sign() {
   nodes.forEach((p, i) => kept.has(i) && p.classList.add('glow'));
   await sleep(600);
   nodes.forEach((p, i) => kept.has(i) && p.animate([{ opacity: 1 }, { opacity: 0.16 }], { duration: 900, fill: 'forwards' }));
-  const placed = layoutNewName(res, PAD_UNITS, puH);
+  const placed = layoutNewName(res, PU_W(), puH);
   for (const [ci, c] of res.chars.entries()) {
     for (const { m, len } of brushGlyph(fx, c.char, placed[ci])) {
       await m.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 220, fill: 'forwards', easing: 'ease-out' }).finished;
@@ -2146,10 +2092,10 @@ $('#signBtn').onclick = sign;
 // result sheet: bottom sheet on phones (contract shrinks above it), side panel on wide screens
 function placeResult() {
   const sh = $('#result'), vw = innerWidth, vh = innerHeight;
-  card.style.transform = '';
+  card.style.transform = card.style.transformOrigin = '';
   const cw = card.offsetWidth, ch = card.offsetHeight, top = card.getBoundingClientRect().top;
   let sideW = Math.min(300, vw - cw - 48), k = 1;
-  if (sideW < 250 && vw > vh && vh <= 520) {   // phone in landscape: shrink the contract a little so the result fits beside it
+  if (sideW < 250 && vw > vh) {   // landscape (phone or desktop): shrink the sheet so the result fits beside it
     sideW = Math.round(Math.min(300, Math.max(240, vw * 0.36)));
     k = Math.min(1, (vw - sideW - 60) / cw);
   }
@@ -2159,13 +2105,15 @@ function placeResult() {
   if (side) {
     sh.style.setProperty('--side-w', `${sideW}px`);
     const shift = (sideW + 24) / 2;
+    card.style.transformOrigin = '50% 50%';   // the shrunk sheet stays vertically centred, the panel beside its middle
     card.style.transform = k < 1 ? `translateX(${-shift}px) scale(${k})` : `translateX(${-shift}px)`;
     sh.style.left = `${vw / 2 - shift + cw * k / 2 + 24}px`;
-    sh.style.top = `${top + ch * k / 2}px`;
+    sh.style.top = `${top + ch / 2}px`;
   } else {
     sh.style.left = sh.style.top = '';
     const sheetTop = vh - (parseFloat(getComputedStyle(sh).bottom) || 0) - sh.offsetHeight;
     const k = Math.max(0.35, Math.min(1, (sheetTop - top - 12) / ch));
+    card.style.transformOrigin = '50% 0';
     card.style.transform = `scale(${k})`;
   }
 }
@@ -2187,7 +2135,6 @@ $('#againBtn').onclick = () => {
   card.style.transform = '';
   document.body.classList.remove('locked', 'done');
   resize();
-  setTimeout(openSigner, 350);
 };
 $('#shareBtn').onclick = () => shareResult(lastResult);
 
@@ -2196,22 +2143,21 @@ window.__phase = 'write';
 window.__game = {
   setStrokes(s) { strokes = s.map(st => st.map(p => ({ x: p.x, y: p.y }))); redraw(); },
   getStrokes: () => strokes.map(st => st.map(p => ({ x: p.x, y: p.y }))),
-  padSize: () => ({ w: PAD_UNITS, h: PU_H() }),
+  padSize: () => ({ w: PU_W(), h: PU_H() }),
   size: () => ({ W, H }),
   strokeCount: () => strokes.length,
-  padToScreen(x, y) { const r = big.getBoundingClientRect(), p0 = pos({ clientX: r.left, clientY: r.top }), p1 = pos({ clientX: r.left + 100, clientY: r.top + 100 });
-    return { x: r.left + (x - p0.x) * 100 / (p1.x - p0.x), y: r.top + (y - p0.y) * 100 / (p1.y - p0.y) }; },
+  padToScreen(x, y) { const r = pad.getBoundingClientRect(); return { x: r.left + x / PU_W() * r.width, y: r.top + y / PU_H() * r.height }; },
   prefetch: () => prefetch(strokes, 0),   // what a finished stroke triggers
   openSigner, closeSigner,
-  bigPadRect: () => { const r = big.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; },
-  // big-box CSS px -> pad units (what a touch at that point records)
-  bigToPad: (px, py) => pos({ clientX: big.getBoundingClientRect().left + px, clientY: big.getBoundingClientRect().top + py }),
+  // (kept for the tests) the writable surface is now the sheet itself
+  bigPadRect: () => { const r = pad.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; },
+  bigToPad: (px, py) => pos({ clientX: pad.getBoundingClientRect().left + px, clientY: pad.getBoundingClientRect().top + py }),
   sign,
   runMatchSafe,   // bench / tests: the bounded matcher call 簽約 uses
 };
 
 resize();
-kaiReady.then(() => { if (!locked) resize(); setTimeout(openSigner, 700); });   // show the contract, then zoom into the signing field
+kaiReady.then(() => { if (!locked) resize(); window.__signer = 'open'; });   // the sheet is the signing field: ready to write
 
 return {  };
 })();
