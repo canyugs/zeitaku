@@ -9,13 +9,13 @@
 <meta property="og:title" content="契約書">
 <meta property="og:description" content="在契約書上寫下你的名字。">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://canyugs.github.io/zeitaku/share-card.jpg">
+<meta property="og:image" content="https://canyugs.github.io/zeitaku/share-card.jpg?v=result-1">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="契約書上，「太」少了一點，成了「大」。">
+<meta property="og:image:alt" content="改名結果分享圖：手寫的「太」減筆成了「一」，契約上寫著「真是個奢侈的名字啊。」「從今天起，你就叫一。」">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://canyugs.github.io/zeitaku/share-card.jpg">
-<meta name="twitter:image:alt" content="契約書上，「太」少了一點，成了「大」。">
+<meta name="twitter:image" content="https://canyugs.github.io/zeitaku/share-card.jpg?v=result-1">
+<meta name="twitter:image:alt" content="改名結果分享圖：手寫的「太」減筆成了「一」，契約上寫著「真是個奢侈的名字啊。」「從今天起，你就叫一。」">
 <meta name="twitter:title" content="契約書">
 <meta name="twitter:description" content="在契約書上寫下你的名字。">
 <style>
@@ -1856,9 +1856,13 @@ async function renderShareImage(res) {
   }
   c.setLineDash([]);
   drawSeal(c, 215, h - 230, 88);
-  // the last line, as a column beside the title: 從今天起，你就叫 + the new name (its brush glyphs) + 。
-  { const fs = 42, pitch = 48, x = 868, y = 112, lead = '從今天起，你就叫';
-    c.fillStyle = 'rgba(33,29,25,.78)'; vcol(c, lead, x, y, fs, pitch);
+  // Read the verdict first, then the naming line below it.
+  { const fs = 42, pitch = 48, x = 868, top = 112, lead = '從今天起，你就叫';
+    const [firstLine] = verdictText();
+    const y = top + ([...firstLine].length + 1) * pitch;
+    c.fillStyle = 'rgba(33,29,25,.78)';
+    vcol(c, firstLine, x, top, fs, pitch);
+    vcol(c, lead, x, y, fs, pitch);
     let yy = y + [...lead].length * pitch + 6;
     for (const ch of res.chars) {
       const gs = 58; c.save(); c.translate(x - gs / 2, yy); c.scale(gs / 1024, gs / 1024); c.fillStyle = ink;
